@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>La Merideña - Pedidos, Stock y Ventas</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        meridena: {
+                            sky: '#4A86A8',
+                            skyLight: '#E8F1F5',
+                            skyDark: '#32607B',
+                            sun: '#E6A100',
+                            sunLight: '#FFF6D6',
+                            sunHover: '#C68B00',
+                            dark: '#2C3E50',
+                            bg: '#F8FAFC',
+                            card: '#FFFFFF',
+                            green: '#10B981'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        brand: ['Playfair Display', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #F8FAFC; color: #2C3E50; padding-bottom: 70px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #F1F5F9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen font-sans flex flex-col antialiased selection:bg-meridena-sunLight selection:text-meridena-dark">
+
+    <!-- HEADER MÓVIL COMPACTO -->
+    <header class="bg-white border-b border-slate-200/80 shadow-xs sticky top-0 z-30">
+        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                    🏔️
+                </div>
+                <div>
+                    <h1 class="font-brand font-bold text-lg text-meridena-dark leading-tight">La Merideña</h1>
+                    <p class="text-[10px] font-bold text-meridena-sky tracking-wider uppercase">Pedidos & Ventas 🇻🇪</p>
+                </div>
+            </div>
+
+            <!-- BADGE ENTREGAS HOY -->
+            <div class="bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl flex items-center gap-2">
+                <span class="relative flex h-2.5 w-2.5">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+                <div>
+                    <span class="text-[9px] font-extrabold text-amber-800 uppercase block">Hoy</span>
+                    <span id="badge-entregas-hoy" class="text-base font-black text-amber-900 leading-none">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 max-w-md w-full mx-auto px-4 py-4 space-y-4">
+
+        <!-- SECCIÓN 1: TOMAR PEDIDO -->
+        <div id="view-tomar" class="space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="user-plus" class="w-4 h-4 text-meridena-sky"></i> Datos del Cliente
+                    </h2>
+                    <button id="btn-cancelar-edicion" onclick="cancelarEdicionPedido()" class="hidden text-xs bg-red-100 text-red-700 px-2 py-1 rounded-lg font-bold">Cancelar Edición</button>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre / Teléfono</label>
+                    <!-- 👉 1. Agregamos aquí el atributo list -->
+                    <input type="text" id="input-cliente" list="sugerencias-clientes" placeholder="Ej: Sra. Carmen" oninput="guardarBorradorPedido()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-meridena-sky">
+                    
+                    <!-- 👉 2. Colocamos el datalist justo aquí abajo -->
+                    <datalist id="sugerencias-clientes"></datalist>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-bold text-amber-800 uppercase mb-1">Entrega</label>
+                        <input type="date" id="input-fecha-entrega" onchange="guardarBorradorPedido()" class="w-full px-2 py-2 rounded-xl border border-amber-300 text-xs font-bold bg-amber-50/50">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Notas</label>
+                        <input type="text" id="input-notas" placeholder="Ej: Tarde" oninput="guardarBorradorPedido()" class="w-full px-2 py-2 rounded-xl border border-slate-200 text-xs font-medium">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CATÁLOGO -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+                <h2 class="font-brand font-bold text-base text-meridena-dark mb-3 flex items-center gap-2">
+                    <i data-lucide="package" class="w-4 h-4 text-amber-500"></i> Catálogo (Toca para sumar)
+                </h2>
+                <div class="grid grid-cols-1 gap-2.5" id="contenedor-catalogo"></div>
+            </div>
+
+            <!-- CARRITO -->
+            <div class="bg-white p-4 rounded-2xl border-2 border-meridena-sky/40 shadow-sm space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 class="font-brand font-bold text-sm text-meridena-dark flex items-center gap-1.5">
+                        <i data-lucide="shopping-cart" class="w-4 h-4 text-meridena-sky"></i> Pedido Actual
+                    </h3>
+                    <button onclick="limpiarCarritoActual()" class="text-xs font-bold text-red-500">Vaciar</button>
+                </div>
+                <div id="contenedor-carrito" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                <div class="flex justify-between items-center text-xs font-extrabold text-slate-800 pt-1 border-t border-slate-100">
+                    <span class="text-sm font-bold">Total Estimado:</span>
+                    <span id="carrito-total-precio" class="text-lg font-black text-amber-900">$0.00</span>
+                </div>
+                <button id="btn-guardar-pedido" onclick="guardarPedido()" class="w-full py-3.5 bg-meridena-sun hover:bg-meridena-sunHover text-slate-900 font-black text-base rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                    <i data-lucide="check-circle" class="w-5 h-5"></i> GUARDAR PEDIDO
+                </button>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: AGENDA SOLO HOY -->
+        <div id="view-recordatorios" class="hidden space-y-4">
+            <div class="bg-amber-500 text-slate-950 p-4 rounded-2xl shadow-sm">
+                <span class="text-[10px] font-extrabold uppercase tracking-widest bg-white/90 text-amber-900 px-2.5 py-0.5 rounded-full">🔔 Urgente</span>
+                <h2 class="font-brand font-bold text-xl mt-1">Entregas de HOY</h2>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+                <div id="container-entregas-hoy" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3: LISTADO GENERAL -->
+        <div id="view-listado" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+                <h2 class="font-brand font-bold text-base text-slate-800 mb-1">Todos los Pedidos</h2>
+                <p class="text-[11px] text-slate-400 mb-3">Historial completo. Puedes cambiar fechas, editar productos o gestionar cobros.</p>
+                <div id="contenedor-listado-pedidos" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 4: STOCK -->
+        <div id="view-proveedores" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                    <i data-lucide="truck" class="w-4 h-4 text-meridena-sky"></i> Pedido a Proveedores (Reabastecer)
+                </h2>
+                <div class="space-y-2">
+                    <select id="prov-producto-select" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold"></select>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="prov-cantidad" placeholder="Cantidad a sumar" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
+                        <input type="text" id="prov-nombre" placeholder="Nombre Proveedor" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
+                    </div>
+                    <button onclick="registrarPedidoProveedor()" class="w-full py-2 bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-xs rounded-xl transition">
+                        + Registrar Pedido & Actualizar Stock
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="box" class="w-4 h-4 text-meridena-sky"></i> Control de Stock (Unidades)
+                    </h2>
+                </div>
+                <div id="contenedor-stock-movil" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 5: VENTAS -->
+        <div id="view-ventas" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-600"></i> Historial de Ventas (Jerárquico)
+                    </h2>
+                </div>
+                <div id="contenedor-arbol-ventas" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 6: DEUDORES -->
+        <div id="view-deudores" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="wallet" class="w-4 h-4 text-red-500"></i> Cuentas Corrientes (Deudores)
+                    </h2>
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">
+                    <span class="text-[11px] font-bold text-slate-700 block">Registrar Nueva Deuda</span>
+                    <input type="text" id="deudor-nombre" placeholder="Nombre del cliente" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="deudor-monto" placeholder="Monto adeudado ($)" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
+                        <input type="text" id="deudor-concepto" placeholder="Concepto" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
+                    </div>
+                    <button onclick="agregarDeudor()" class="w-full py-2 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-lg transition">
+                        + Registrar Deuda
+                    </button>
+                </div>
+
+                <div id="contenedor-lista-deudores" class="space-y-2.5 mt-2"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- BARRA DE NAVEGACIÓN INFERIOR (6 BOTONES) -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg py-1.5 px-1 z-40">
+        <div class="max-w-md mx-auto grid grid-cols-6 gap-0.5 text-center">
+            <button onclick="switchMainTab('tomar')" id="nav-btn-tomar" class="flex flex-col items-center justify-center py-1 text-meridena-sky font-bold text-[8px]">
+                <i data-lucide="plus-circle" class="w-4 h-4 mb-0.5"></i> Pedido
+            </button>
+            <button onclick="switchMainTab('recordatorios')" id="nav-btn-recordatorios" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="bell" class="w-4 h-4 mb-0.5"></i> Hoy
+            </button>
+            <button onclick="switchMainTab('listado')" id="nav-btn-listado" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="list" class="w-4 h-4 mb-0.5"></i> Listado
+            </button>
+            <button onclick="switchMainTab('proveedores')" id="nav-btn-proveedores" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="box" class="w-4 h-4 mb-0.5"></i> Stock
+            </button>
+            <button onclick="switchMainTab('ventas')" id="nav-btn-ventas" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 mb-0.5"></i> Ventas
+            </button>
+            <button onclick="switchMainTab('deudores')" id="nav-btn-deudores" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="wallet" class="w-4 h-4 mb-0.5"></i> Deudas
+            </button>
+        </div>
+    </nav>
+
+    <!-- MODAL MEJORADO: PAGAR EN ADELANTADO O ENTREGAR Y COBRAR -->
+    <div id="modal-completar" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white p-5 rounded-2xl max-w-sm w-full space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                <h3 class="font-brand font-bold text-base text-slate-900" id="modal-titulo-cliente">Gestión del Pedido</h3>
+                <button onclick="cerrarModalCompletar()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+            </div>
+            
+            <div class="space-y-3 text-xs">
+                <div class="bg-slate-50 p-2.5 rounded-xl flex justify-between items-center">
+                    <span class="text-slate-600 font-semibold">Total Pedido:</span>
+                    <strong id="modal-total-venta" class="text-lg font-black text-slate-900">$0.00</strong>
+                </div>
+                
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Monto Abonado / Pagado ($):</label>
+                    <input type="number" id="modal-input-monto-pagado" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-lg font-black text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                
+                <p id="modal-aviso-deuda" class="text-xs text-amber-600 font-medium hidden">⚠️ El cliente quedará debiendo la diferencia en deudores.</p>
+            </div>
+
+            <!-- OPCIONES DE ACCIÓN -->
+            <div class="space-y-2 pt-2">
+                <button onclick="registrarPagoAdelantado()" class="w-full py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-black text-xs rounded-xl transition flex items-center justify-center gap-2">
+                    <i data-lucide="wallet" class="w-4 h-4 text-emerald-700"></i> REGISTRAR PAGO (SE QUEDA SIN ENTREGAR Ó HAY DEUDA)
+                </button>
+                
+                <button onclick="procesarCompletarPedido()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
+                    <i data-lucide="check-circle" class="w-4 h-4"></i> ENTREGAR Y COBRAR (FINALIZAR)
+                </button>
+
+                <button onclick="cerrarModalCompletar()" class="w-full py-2 text-slate-400 font-bold text-xs hover:text-slate-600">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script>
+        let db;
+        const DB_NAME = "LaMeridenaAppStockDefinitiva";
+        const STORE_NAME = "pedidos";
+        const STORE_STOCK = "stock";
+        const STORE_DEUDORES = "deudores";
+        const STORE_VENTAS = "ventas";
+
+        let contadorId = 101;
+        let carritoActual = [];
+        let listaPedidos = [];
+        let listaDeudores = [];
+        let listaVentas = [];
+        let pedidoEnProcesoId = null;
+        let pedidoEnEdicionId = null;
+
+        let catalogoProductos = [
+    { id: 1, nombre: "Pan Andino", emoji: "🥖", stockActual: 20, precio: 1000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
+    { id: 2, nombre: "Pan de Guayaba", emoji: "🍞", stockActual: 15, precio: 1500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
+    { id: 3, nombre: "Pan de Guayaba con queso", emoji: "🧀", stockActual: 15, precio: 1800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
+    
+    // PAN DE COCO (1 paquete = 5 unidades)
+    { id: 4, nombre: "Pan de Coco", emoji: "🥥", stockActual: 10, precio: 4000, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
+    
+    // PAN SALADO (1 paquete = 5 unidades)
+    { id: 5, nombre: "Pan Salado", emoji: "🥖", stockActual: 12, precio: 3500, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
+    
+    { id: 6, nombre: "Quesadillas", emoji: "🥮", stockActual: 20, precio: 1200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "3 Un.", cant: 3, text: "3 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
+    { id: 7, nombre: "Arroz con leche", emoji: "🍚", stockActual: 10, precio: 2000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+    { id: 8, nombre: "Quesillo Porcion", emoji: "🍮", stockActual: 10, precio: 2200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+    { id: 9, nombre: "Quesillo completo", emoji: "🍮", stockActual: 5, precio: 12000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+    { id: 10, nombre: "Yogurt Natural", emoji: "🥛", stockActual: 12, precio: 2500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+    { id: 11, nombre: "Yogurt Natural Frutilla", emoji: "🍓", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+    { id: 12, nombre: "Yogurt Natural Ananá", emoji: "🍍", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+    { id: 13, nombre: "Yogurt Natural Durazno", emoji: "🍑", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+    { id: 14, nombre: "Yogurt Natural Arándanos", emoji: "🫐", stockActual: 12, precio: 3000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] }
+];
+
+        function iniciarBaseDeDatos() {
+            const request = indexedDB.open(DB_NAME, 1);
+            request.onupgradeneeded = function(e) {
+                let dbRef = e.target.result;
+                if (!dbRef.objectStoreNames.contains(STORE_NAME)) dbRef.createObjectStore(STORE_NAME, { keyPath: "id" });
+                if (!dbRef.objectStoreNames.contains(STORE_STOCK)) dbRef.createObjectStore(STORE_STOCK, { keyPath: "id" });
+                if (!dbRef.objectStoreNames.contains(STORE_DEUDORES)) dbRef.createObjectStore(STORE_DEUDORES, { keyPath: "id" });
+                if (!dbRef.objectStoreNames.contains(STORE_VENTAS)) dbRef.createObjectStore(STORE_VENTAS, { keyPath: "id" });
+            };
+            request.onsuccess = function(e) {
+                db = e.target.result;
+                cargarDatosDesdeBD();
+            };
+        }
+
+        function guardarEnBD(storeName, lista) {
+            if (!db) return;
+            const tx = db.transaction(storeName, "readwrite");
+            const store = tx.objectStore(storeName);
+            store.clear().onsuccess = () => lista.forEach(item => store.put(item));
+        }
+
+        function cargarDatosDesdeBD() {
+            if (!db) return;
+            db.transaction(STORE_STOCK, "readonly").objectStore(STORE_STOCK).getAll().onsuccess = (e) => {
+                if (e.target.result && e.target.result.length > 0) catalogoProductos = e.target.result;
+                renderCatalogo();
+                renderStockMovil();
+                renderSelectProveedores();
+            };
+            db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll().onsuccess = (e) => {
+                if (e.target.result && e.target.result.length > 0) {
+                    listaPedidos = e.target.result;
+                    contadorId = Math.max(...listaPedidos.map(p => p.id), 100) + 1;
+                }
+                actualizarTodo();
+            };
+            db.transaction(STORE_DEUDORES, "readonly").objectStore(STORE_DEUDORES).getAll().onsuccess = (e) => {
+                if (e.target.result) { listaDeudores = e.target.result; renderDeudores(); }
+            };
+            db.transaction(STORE_VENTAS, "readonly").objectStore(STORE_VENTAS).getAll().onsuccess = (e) => {
+                if (e.target.result) { listaVentas = e.target.result; renderVentasArbol(); }
+            };
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+            const inputFecha = document.getElementById('input-fecha-entrega');
+            if (inputFecha) inputFecha.value = getFechaOffset(0);
+            
+            cargarBorradorPedido();
+            iniciarBaseDeDatos();
+        });
+
+        function getFechaOffset(dias) {
+            const d = new Date();
+            d.setDate(d.getDate() + dias);
+            return d.toISOString().split('T')[0];
+        }
+
+        function switchMainTab(tabId) {
+            const tabs = ['tomar', 'recordatorios', 'listado', 'proveedores', 'ventas', 'deudores'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`nav-btn-${t}`);
+                if (el) el.classList.toggle('hidden', t !== tabId);
+                if (btn) {
+                    if (t === tabId) {
+                        btn.classList.remove('text-slate-400');
+                        btn.classList.add('text-meridena-sky');
+                    } else {
+                        btn.classList.remove('text-meridena-sky');
+                        btn.classList.add('text-slate-400');
+                    }
+                }
+            });
+        }
+
+        function guardarBorradorPedido() {
+            if (pedidoEnEdicionId !== null) return;
+            const borrador = {
+                cliente: document.getElementById('input-cliente').value,
+                fechaEntrega: document.getElementById('input-fecha-entrega').value,
+                notas: document.getElementById('input-notas').value,
+                carrito: carritoActual
+            };
+            localStorage.setItem('meridena_borrador_pedido', JSON.stringify(borrador));
+        }
+
+        function cargarBorradorPedido() {
+            const guardado = localStorage.getItem('meridena_borrador_pedido');
+            if (guardado) {
+                try {
+                    const b = JSON.parse(guardado);
+                    if (b.cliente) document.getElementById('input-cliente').value = b.cliente;
+                    if (b.fechaEntrega) document.getElementById('input-fecha-entrega').value = b.fechaEntrega;
+                    if (b.notas) document.getElementById('input-notas').value = b.notas;
+                    if (b.carrito) {
+                        carritoActual = b.carrito;
+                        renderCarrito();
+                    }
+                } catch (e) { console.error(e); }
+            }
+        }
+
+        function limpiarBorradorPedido() {
+            localStorage.removeItem('meridena_borrador_pedido');
+        }
+
+        function renderCatalogo() {
+            const contenedor = document.getElementById('contenedor-catalogo');
+            if (!contenedor) return;
+            contenedor.innerHTML = catalogoProductos.map(prod => `
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-3xl">${prod.emoji}</span>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm">${prod.nombre}</h4>
+                                <span class="text-xs text-slate-500 font-semibold">Stock: ${prod.stockActual} u. | <strong class="text-emerald-700 text-base font-black">$${prod.precio}</strong></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <span class="text-xs text-slate-400 font-bold">$</span>
+                            <input type="number" value="${prod.precio}" onchange="actualizarPrecioDesdeCatalogo(${prod.id}, this.value)" class="w-24 px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-base font-black text-emerald-700 text-right">
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${prod.rapidos.map(btn => `
+                            <button onclick="agregarAlCarrito(${prod.id}, ${btn.cant}, '${btn.text}')" 
+                                class="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs rounded-xl transition">
+                                + ${btn.label}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+    function renderStockMovil() {
+        const contenedor = document.getElementById('contenedor-stock-movil');
+        if (!contenedor) return;
+
+        contenedor.innerHTML = catalogoProductos.map(prod => {
+            // Cálculo de paquetes si aplica (ej: 5 unidades por paquete)
+            let infoPaquetes = "";
+            if (prod.unidadesPorPaquete) {
+                const paquetesTotales = (prod.stockActual / prod.unidadesPorPaquete).toFixed(1);
+                infoPaquetes = `<span class="text-xs text-amber-700 font-bold block">📦 Equivalente: ${paquetesTotales} paquetes (${prod.unidadesPorPaquete}u c/u)</span>`;
+    }
+
+        return `
+            <div class="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-3xl">${prod.emoji}</span>
+                    <div class="flex flex-col">
+                        <span class="font-bold text-sm text-meridena-dark">${prod.nombre}</span>
+                        <span class="text-xs text-slate-500">Stock: <strong class="text-slate-900 text-base font-black">${prod.stockActual} u.</strong></span>
+                        ${infoPaquetes}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                    <button type="button" onclick="ajustarStock(${prod.id}, -1)" class="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-800 hover:bg-red-50 hover:text-red-600 active:scale-95 transition-all font-black text-sm">-1</button>
+                    <span class="w-8 text-center font-black text-sm text-meridena-dark">${prod.stockActual}</span>
+                    <button type="button" onclick="ajustarStock(${prod.id}, 1)" class="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-800 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95 transition-all font-black text-sm">+1</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+        function agregarAlCarrito(productoId, cantidad, textoDetalle) {
+            // Convertimos el ID a número para evitar problemas de comparación
+            const idBuscado = Number(productoId);
+            const cantAgregar = Number(cantidad) || 1;
+            const detalleLimpio = textoDetalle || '';
+
+            // Buscamos el producto en el catálogo
+            const producto = catalogoProductos.find(p => Number(p.id) === idBuscado);
+            
+            if (!producto) {
+                console.error("No se encontró el producto en el catálogo con ID:", productoId);
+                return;
+            }
+
+            // Detectar el stock disponible de forma segura
+            const stockDisponible = Number(producto.stockActual !== undefined ? producto.stockActual : (producto.stock || 0));
+
+            // Buscar si ya existe en el carrito el mismo producto CON EL MISMO DETALLE
+            const itemExistente = carritoActual.find(i => Number(i.productoId) === idBuscado && i.textoDetalle === detalleLimpio);
+            const cantidadActualEnCarrito = itemExistente ? itemExistente.cantidad : 0;
+            const nuevaCantidadTotal = cantidadActualEnCarrito + cantAgregar;
+
+            // 🛑 Validar contra el stock real antes de agregar
+            if (nuevaCantidadTotal > stockDisponible) {
+                alert("No te queda Stock");
+                return;
+            }
+
+            if (itemExistente) {
+                // Si ya existe exactamente igual, sumamos la cantidad
+                itemExistente.cantidad = nuevaCantidadTotal;
+            } else {
+                // Si es nuevo o tiene otro detalle, lo agregamos como una línea nueva
+                carritoActual.push({ 
+                    productoId: idBuscado, 
+                    nombre: producto.nombre, 
+                    emoji: producto.emoji || '', 
+                    cantidad: cantAgregar, 
+                    precioUnitario: Number(producto.precio),
+                    textoDetalle: detalleLimpio
+                });
+            }
+            
+            renderCarrito();
+            guardarBorradorPedido();
+        }
+        function actualizarSugerenciasClientes() {
+            const datalist = document.getElementById('sugerencias-clientes');
+            if (!datalist) return;
+
+            // Extraer nombres únicos de los pedidos guardados
+            const clientesUnicos = [...new Set(listaPedidos.map(p => p.cliente).filter(Boolean))];
+            
+            // Rellenar el datalist con las opciones
+            datalist.innerHTML = clientesUnicos.map(nombre => `<option value="${nombre}">`).join('');
+        }
+
+        function renderSelectProveedores() {
+            const select = document.getElementById('prov-producto-select');
+            if (!select) return;
+            select.innerHTML = catalogoProductos.map(p => `<option value="${p.id}">${p.emoji} ${p.nombre} (Stock actual: ${p.stockActual})</option>`).join('');
+        }
+
+        function registrarPedidoProveedor() {
+            const prodId = parseInt(document.getElementById('prov-producto-select').value);
+            const cantidad = parseInt(document.getElementById('prov-cantidad').value);
+
+            if (isNaN(cantidad) || cantidad <= 0) return alert("Ingresa una cantidad válida a reabastecer.");
+
+            const prod = catalogoProductos.find(p => p.id === prodId);
+            if (prod) {
+                prod.stockActual += cantidad;
+                guardarEnBD(STORE_STOCK, catalogoProductos);
+                document.getElementById('prov-cantidad').value = '';
+                document.getElementById('prov-nombre').value = '';
+                actualizarTodo();
+                alert(`¡Stock actualizado! Se sumaron ${cantidad} unidades de ${prod.nombre}.`);
+            }
+        }
+
+        function actualizarPrecioDesdeCatalogo(productoId, nuevoPrecio) {
+            const precioNum = parseFloat(nuevoPrecio);
+            const prod = catalogoProductos.find(p => p.id === productoId);
+            if (prod && !isNaN(precioNum)) {
+                prod.precio = precioNum;
+                guardarEnBD(STORE_STOCK, catalogoProductos);
+                renderStockMovil();
+            }
+        }
+
+        function cambiarCantidadCarrito(index, cambio) {
+            const item = carritoActual[index];
+            if (!item) return;
+
+            const nuevaCantidad = item.cantidad + cambio;
+
+            // Si intenta sumar más cantidad de la que hay en stock
+            if (cambio > 0) {
+                const producto = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                const stockDisponible = Number(producto ? (producto.stockActual ?? producto.stock ?? 0) : 0);
+                
+                if (producto && nuevaCantidad > stockDisponible) {
+                    alert("No te queda Stock");
+                    return; // Detiene el incremento
+                }
+            }
+
+            if (nuevaCantidad <= 0) {
+                // Si llega a 0 o menos, removemos el ítem del carrito
+                carritoActual.splice(index, 1);
+            } else {
+                item.cantidad = nuevaCantidad;
+            }
+
+            renderCarrito();
+            guardarBorradorPedido();
+        }
+
+        
+
+        function removerDelCarrito(index) {
+            if (!carritoActual[index]) return;
+            carritoActual.splice(index, 1);
+            renderCarrito();
+            guardarBorradorPedido();
+        }
+
+        function limpiarCarritoActual() {
+            carritoActual = [];
+            document.getElementById('input-cliente').value = '';
+            document.getElementById('input-notas').value = '';
+            renderCarrito();
+            limpiarBorradorPedido();
+        }
+
+        function renderCarrito() {
+            const contenedor = document.getElementById('contenedor-carrito');
+            if (!contenedor) return;
+            if (carritoActual.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">Sin productos en el pedido.</p>`;
+                document.getElementById('carrito-total-precio').innerText = "$0.00";
+                return;
+            }
+
+            let totalPedido = 0;
+            contenedor.innerHTML = carritoActual.map((item, index) => {
+                const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                const precioU = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
+                const subtotal = precioU * Number(item.cantidad);
+                totalPedido += subtotal;
+                
+                return `
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl text-xs border border-slate-100">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-900 text-base">${item.emoji || ''} ${item.nombre}</span>
+                            <span class="text-xs text-slate-500">${item.cantidad} unidades - <strong class="text-emerald-700 text-base font-black">$${subtotal.toLocaleString()}</strong></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+                                <button type="button" onclick="cambiarCantidadCarrito(${index}, -1)" class="px-3 py-1.5 bg-slate-100 text-slate-800 hover:bg-red-50 hover:text-red-600 font-black text-base">-</button>
+                                <span class="px-3 font-black text-base text-slate-900">${item.cantidad}</span>
+                                <button type="button" onclick="cambiarCantidadCarrito(${index}, 1)" class="px-3 py-1.5 bg-slate-100 text-slate-800 hover:bg-emerald-50 hover:text-emerald-600 font-black text-base">+</button>
+                            </div>
+                            <button type="button" onclick="removerDelCarrito(${index})" class="text-red-400 font-bold px-2 py-1 text-base hover:text-red-600">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('carrito-total-precio').innerText = `$${totalPedido.toLocaleString()}`;
+        }
+
+        function guardarPedido() {
+            const cliente = document.getElementById('input-cliente').value.trim();
+            const fechaEntrega = document.getElementById('input-fecha-entrega').value;
+            const notas = document.getElementById('input-notas').value.trim();
+
+            if (!cliente) return alert("Ingresa el nombre del cliente.");
+            if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
+            if (!fechaEntrega) return alert("Selecciona la fecha.");
+
+            // 🛑 VALIDACIÓN DE STOCK ESTRICTA
+            for (let item of carritoActual) {
+                const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                if (prod && Number(item.cantidad) > Number(prod.stockActual)) {
+                    alert("No te queda Stock");
+                    return; // Detiene el guardado y mantiene tu catálogo intacto
+                }
+            }
+
+            let totalMonto = 0;
+            const itemsConPrecio = carritoActual.map(item => {
+                const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
+                totalMonto += precio * Number(item.cantidad);
+                return { ...item, precioUnitario: precio, cantidad: Number(item.cantidad) };
+            });
+
+            if (pedidoEnEdicionId !== null) {
+                const pedidoViejo = listaPedidos.find(p => Number(p.id) === Number(pedidoEnEdicionId));
+                if (pedidoViejo) {
+                    pedidoViejo.items.forEach(oldItem => {
+                        const prod = catalogoProductos.find(p => Number(p.id) === Number(oldItem.productoId));
+                        if (prod) prod.stockActual = Number(prod.stockActual) + Number(oldItem.cantidad);
+                    });
+                }
+
+                const index = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnEdicionId));
+                if (index !== -1) {
+                    listaPedidos[index] = {
+                        ...listaPedidos[index],
+                        cliente,
+                        fechaEntrega,
+                        notas,
+                        items: itemsConPrecio,
+                        total: totalMonto
+                    };
+                }
+                pedidoEnEdicionId = null;
+                const btnCancelar = document.getElementById('btn-cancelar-edicion');
+                if (btnCancelar) btnCancelar.classList.add('hidden');
+                const btnGuardar = document.getElementById('btn-guardar-pedido');
+                if (btnGuardar) btnGuardar.innerText = "GUARDAR PEDIDO";
+            } else {
+                listaPedidos.push({
+                    id: Number(contadorId++),
+                    cliente,
+                    fechaEntrega,
+                    notas,
+                    items: itemsConPrecio,
+                    total: totalMonto,
+                    montoPagado: 0,
+                    pagadoAdelantado: false,
+                    horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+            }
+
+            // Descontar stock real
+            itemsConPrecio.forEach(item => {
+                const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                if (prod) {
+                    prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                }
+            });
+
+            // Guardar cambios en IndexedDB
+            guardarEnBD(STORE_NAME, listaPedidos);
+            guardarEnBD(STORE_STOCK, catalogoProductos);
+
+            limpiarCarritoActual();
+            
+            // Actualizar la interfaz sin perder el catálogo
+            if (typeof actualizarTodo === 'function') {
+                actualizarTodo();
+            } else {
+                renderCatalogo();
+                renderStockMovil();
+            }
+
+            switchMainTab('listado');
+            alert("¡Pedido guardado con éxito!");
+        }
+
+        function renderListadoPedidos() {
+    const contenedor = document.getElementById('contenedor-listado-pedidos');
+    if (!contenedor) return;
+    if (listaPedidos.length === 0) {
+        contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay pedidos pendientes.</p>`;
+        return;
+    }
+    contenedor.innerHTML = listaPedidos.map(p => {
+        // Cálculo rápido para saber si hay saldo pendiente / deuda en este pedido
+        const saldoPendiente = p.total - (p.montoPagado || 0);
+        const tieneDeuda = saldoPendiente > 0;
+
+        return `
+            <div class="p-4 bg-slate-50 rounded-xl border ${tieneDeuda ? 'border-red-300 bg-red-50/30' : 'border-slate-100'} space-y-2.5 text-xs">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2 flex-1">
+                        <div id="nombre-container-${p.id}" class="flex items-center gap-1.5 flex-1">
+                            <strong id="nombre-texto-${p.id}" class="text-slate-900 font-bold text-base">${p.cliente}</strong>
+                            <button onclick="activarEdicionCliente(${p.id})" title="Editar nombre" class="text-slate-400 hover:text-slate-600 text-xs p-1">✏️</button>
+                        </div>
+                        ${p.pagadoAdelantado ? `<span class="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded">PAGADO-FALTA ENTREGAR</span>` : ''}
+                    </div>
+                    <button onclick="eliminarPedido(${p.id})" class="text-red-400 hover:text-red-600 font-bold px-2 py-1 text-base ml-2" title="Eliminar pedido">✕</button>
+                </div>
+
+                <!-- AVISO DE DEUDA EN EL LISTADO -->
+                ${tieneDeuda ? `
+                    <div class="bg-red-100/80 border border-red-200 text-red-900 px-2.5 py-1.5 rounded-lg font-bold flex justify-between items-center text-[11px]">
+                        <span>⚠️ Deuda pendiente:</span>
+                        <span class="font-black text-sm">$${saldoPendiente.toLocaleString()}</span>
+                    </div>
+                ` : ''}
+
+                <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200">
+                    <span class="text-[11px] font-bold text-slate-600">📅 Fecha Entrega:</span>
+                    <input type="date" value="${p.fechaEntrega}" onchange="cambiarFechaPedido(${p.id}, this.value)" class="px-2 py-1 bg-slate-50 rounded border border-slate-300 text-xs font-bold text-slate-800">
+                </div>
+
+                <div class="text-slate-700 text-xs">
+                    <strong>Productos:</strong> ${p.items.map(i => `${i.nombre} x ${i.cantidad}`).join(', ')}
+                </div>
+
+                <div class="flex justify-between items-center pt-2 border-t border-slate-200/50">
+                    <span class="font-black text-emerald-700 text-base">$${p.total.toLocaleString()}</span>
+                    <div class="flex gap-2">
+                        <button onclick="abrirModalAgregarProductos(${p.id})" class="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg font-bold transition">➕ Productos</button>
+                        <button onclick="abrirModalCompletar(${p.id})" class="text-xs bg-slate-200 hover:bg-emerald-500 hover:text-white px-3.5 py-1.5 rounded-lg font-bold transition">Gestionar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        }).join('');
+    }
+
+        function eliminarPedido(id) {
+            if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
+                const pedido = listaPedidos.find(p => p.id === id);
+                if (pedido) {
+                    pedido.items.forEach(i => {
+                        const prod = catalogoProductos.find(p => p.id === i.productoId);
+                        if (prod) prod.stockActual += i.cantidad;
+                    });
+                    guardarEnBD(STORE_STOCK, catalogoProductos);
+                    renderStockMovil();
+                    renderCatalogo();
+                }
+                listaPedidos = listaPedidos.filter(p => p.id !== id);
+                guardarEnBD(STORE_NAME, listaPedidos);
+                actualizarTodo();
+            }
+        }
+
+        function activarEdicionCliente(id) {
+            const container = document.getElementById(`nombre-container-${id}`);
+            const pedido = listaPedidos.find(p => p.id === id);
+            if (!container || !pedido) return;
+
+            container.innerHTML = `
+                <input type="text" id="input-edit-nombre-${id}" value="${pedido.cliente}" class="px-2 py-0.5 text-sm font-bold border border-emerald-500 rounded bg-white w-full outline-none" />
+                <button onclick="guardarCambioNombreCliente(${id})" class="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-bold">✔</button>
+            `;
+            const input = document.getElementById(`input-edit-nombre-${id}`);
+            input.focus();
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') guardarCambioNombreCliente(id);
+            });
+        }
+
+        function guardarCambioNombreCliente(id) {
+            const input = document.getElementById(`input-edit-nombre-${id}`);
+            if (!input) return;
+            const nuevoNombre = input.value.trim();
+            if (!nuevoNombre) return alert("El nombre no puede estar vacío.");
+
+            const pedido = listaPedidos.find(p => p.id === id);
+            if (pedido) {
+                pedido.cliente = nuevoNombre;
+                guardarEnBD(STORE_NAME, listaPedidos);
+                actualizarTodo();
+            }
+        }
+
+        function abrirModalAgregarProductos(id) {
+            const pedido = listaPedidos.find(p => p.id === id);
+            if (!pedido) return;
+
+            pedidoEnEdicionId = pedido.id;
+            document.getElementById('input-cliente').value = pedido.cliente;
+            document.getElementById('input-fecha-entrega').value = pedido.fechaEntrega;
+            document.getElementById('input-notas').value = pedido.notas || '';
+
+            carritoActual = pedido.items.map(item => ({ ...item }));
+            renderCarrito();
+
+            document.getElementById('btn-cancelar-edicion').classList.remove('hidden');
+            document.getElementById('btn-guardar-pedido').innerText = "ACTUALIZAR PEDIDO";
+            switchMainTab('tomar');
+        }
+
+        function cancelarEdicionPedido() {
+            pedidoEnEdicionId = null;
+            limpiarCarritoActual();
+            document.getElementById('btn-cancelar-edicion').classList.add('hidden');
+            document.getElementById('btn-guardar-pedido').innerText = "GUARDAR PEDIDO";
+        }
+
+        function cambiarFechaPedido(id, nuevaFecha) {
+            const pedido = listaPedidos.find(p => p.id === id);
+            if (pedido) {
+                pedido.fechaEntrega = nuevaFecha;
+                guardarEnBD(STORE_NAME, listaPedidos);
+                actualizarTodo();
+            }
+        }
+
+        function ajustarStock(id, cambio) {
+            const prod = catalogoProductos.find(p => p.id === id);
+            if (prod) {
+                prod.stockActual = Math.max(0, prod.stockActual + cambio);
+                guardarEnBD(STORE_STOCK, catalogoProductos);
+                renderStockMovil();
+                renderCatalogo();
+            }
+        }
+
+        function actualizarTodo() {
+            renderListadoPedidos();
+            renderEntregasHoy();
+            renderBadgeHoy();
+            renderDeudores();
+            actualizarSugerenciasClientes();
+        }
+
+        function renderBadgeHoy() {
+            const hoy = getFechaOffset(0);
+            const count = listaPedidos.filter(p => p.fechaEntrega === hoy).length;
+            const badge = document.getElementById('badge-entregas-hoy');
+            if (badge) badge.innerText = count;
+        }
+
+        function renderEntregasHoy() {
+            const contenedor = document.getElementById('container-entregas-hoy');
+            if (!contenedor) return;
+            const hoy = getFechaOffset(0);
+            const entregasHoy = listaPedidos.filter(p => p.fechaEntrega === hoy);
+            if (entregasHoy.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay entregas para hoy.</p>`;
+                return;
+            }
+            contenedor.innerHTML = entregasHoy.map(p => `
+                <div class="p-3 bg-amber-50/50 border border-amber-200 rounded-xl text-xs space-y-1">
+                    <div class="flex justify-between font-bold text-amber-900 text-sm">
+                        <span>${p.cliente}</span>
+                        <span>$${p.total.toLocaleString()}</span>
+                    </div>
+                    <p class="text-slate-600">${p.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</p>
+                </div>
+            `).join('');
+        }
+
+        function abrirModalCompletar(id) {
+            pedidoEnProcesoId = id;
+            const pedido = listaPedidos.find(p => p.id === id);
+            if (!pedido) return;
+            document.getElementById('modal-titulo-cliente').innerText = `Gestionar: ${pedido.cliente}`;
+            document.getElementById('modal-total-venta').innerText = `$${pedido.total.toLocaleString()}`;
+            document.getElementById('modal-input-monto-pagado').value = pedido.total;
+            document.getElementById('modal-completar').classList.remove('hidden');
+        }
+
+        function cerrarModalCompletar() {
+            document.getElementById('modal-completar').classList.add('hidden');
+            pedidoEnProcesoId = null;
+        }
+
+        function procesarCompletarPedido() {
+    const pedidoIndex = listaPedidos.findIndex(p => p.id === pedidoEnProcesoId);
+    if (pedidoIndex === -1) return;
+    const pedido = listaPedidos[pedidoIndex];
+
+    const nuevoAbono = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+    
+    const abonadoAnterior = pedido.montoPagado || 0;
+    const totalAbonado = abonadoAnterior + nuevoAbono;
+    const saldoPendiente = pedido.total - totalAbonado;
+
+    if (saldoPendiente > 0) {
+        const nuevaDeuda = {
+            id: Date.now(),
+            cliente: pedido.cliente,
+            monto: saldoPendiente,
+            concepto: `Saldo pendiente final pedido #${pedido.id}`
+        };
+        listaDeudores.push(nuevaDeuda);
+        guardarEnBD(STORE_DEUDORES, listaDeudores);
+    } else {
+        // Si pagó el total, limpiamos de deudores si había algo pendiente de este pedido
+        listaDeudores = listaDeudores.filter(d => !d.concepto.includes(`Pedido #${pedido.id}`));
+        guardarEnBD(STORE_DEUDORES, listaDeudores);
+    }
+
+    // Guardar la venta en la lista y en la base de datos
+    listaVentas.push({ 
+        ...pedido, 
+        montoPagado: totalAbonado, 
+        fechaVenta: new Date().toISOString() 
+    });
+    guardarEnBD(STORE_VENTAS, listaVentas);
+    renderVentasArbol(); // <--- ESTO ES LO QUE FALTABA PARA QUE SE REFLEJE EN PANTALLA
+
+    // Remover de pedidos pendientes
+    listaPedidos.splice(pedidoIndex, 1);
+    guardarEnBD(STORE_NAME, listaPedidos);
+
+    cerrarModalCompletar();
+    actualizarTodo();
+    alert(`¡Pedido finalizado y cobrado! ${saldoPendiente > 0 ? 'Se registró un saldo adeudado de $' + saldoPendiente.toLocaleString() : ''}`);
+}
+
+function registrarPagoAdelantado() {
+    const pedido = listaPedidos.find(p => p.id === pedidoEnProcesoId);
+    if (!pedido) return;
+
+    const nuevoAbono = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+    
+    // Acumulamos los pagos parciales
+    pedido.montoPagado = (pedido.montoPagado || 0) + nuevoAbono;
+    pedido.pagadoAdelantado = true;
+
+    const saldoPendiente = pedido.total - pedido.montoPagado;
+
+    // Si con este abono aún queda debiendo parte del total
+    if (saldoPendiente > 0) {
+        const nuevaDeuda = {
+            id: Date.now(),
+            cliente: pedido.cliente,
+            monto: saldoPendiente,
+            concepto: `Deuda restante abonada parcialmente (Pedido #${pedido.id})`
+        };
+        
+        // Actualizamos o agregamos la deuda restante en la lista
+        const indexDeuda = listaDeudores.findIndex(d => d.concepto.includes(`Pedido #${pedido.id}`));
+        if (indexDeuda !== -1) {
+            listaDeudores[indexDeuda].monto = saldoPendiente;
+        } else {
+            listaDeudores.push(nuevaDeuda);
+        }
+        guardarEnBD(STORE_DEUDORES, listaDeudores);
+    } else {
+        // Si ya cubrió el total con abonos, eliminamos si existía una deuda registrada de este pedido
+        listaDeudores = listaDeudores.filter(d => !d.concepto.includes(`Pedido #${pedido.id}`));
+        guardarEnBD(STORE_DEUDORES, listaDeudores);
+    }
+
+    guardarEnBD(STORE_NAME, listaPedidos);
+    cerrarModalCompletar();
+    actualizarTodo();
+    alert(`¡Abono registrado! Total abonado hasta ahora: $${pedido.montoPagado.toLocaleString()} (Quedan debiendo: $${Math.max(0, saldoPendiente).toLocaleString()})`);
+}
+
+        function registrarPagoAdelantado() {
+            const pedido = listaPedidos.find(p => p.id === pedidoEnProcesoId);
+            if (!pedido) return;
+
+            const montoPagado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+            const diferencia = pedido.total - montoPagado;
+
+            pedido.pagadoAdelantado = true;
+            pedido.montoPagado = montoPagado;
+
+            if (diferencia > 0) {
+                const nuevaDeuda = {
+                    id: Date.now(),
+                    cliente: pedido.cliente,
+                    monto: diferencia,
+                    concepto: `Deuda parcial adelanto pedido #${pedido.id}`
+                };
+                listaDeudores.push(nuevaDeuda);
+                guardarEnBD(STORE_DEUDORES, listaDeudores);
+            }
+
+            guardarEnBD(STORE_NAME, listaPedidos);
+            cerrarModalCompletar();
+            actualizarTodo();
+            alert("¡Pago registrado correctamente!");
+        }
+
+        function renderDeudores() {
+            const contenedor = document.getElementById('contenedor-lista-deudores');
+            if (!contenedor) return;
+            if (listaDeudores.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay deudores registrados.</p>`;
+                return;
+            }
+            contenedor.innerHTML = listaDeudores.map(d => `
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
+                    <div>
+                        <strong class="text-slate-900 text-sm block">${d.cliente}</strong>
+                        <span class="text-slate-500">${d.concepto || 'Deuda general'} - <strong class="text-red-600 font-black">$${d.monto.toLocaleString()}</strong></span>
+                    </div>
+                    <button onclick="eliminarDeudor(${d.id})" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1.5 rounded-lg hover:bg-emerald-200">Saldar</button>
+                </div>
+            `).join('');
+        }
+
+        function agregarDeudor() {
+            const nombre = document.getElementById('deudor-nombre').value.trim();
+            const monto = parseFloat(document.getElementById('deudor-monto').value);
+            const concepto = document.getElementById('deudor-concepto').value.trim();
+
+            if (!nombre || isNaN(monto) || monto <= 0) return alert("Ingresa un nombre y un monto válido.");
+
+            listaDeudores.push({
+                id: Date.now(),
+                cliente: nombre,
+                monto: monto,
+                concepto: concepto || 'Deuda manual'
+            });
+
+            guardarEnBD(STORE_DEUDORES, listaDeudores);
+            renderDeudores();
+
+            document.getElementById('deudor-nombre').value = '';
+            document.getElementById('deudor-monto').value = '';
+            document.getElementById('deudor-concepto').value = '';
+            alert("¡Deuda registrada con éxito!");
+        }
+
+        function eliminarDeudor(id) {
+            if (confirm("¿Confirmar que la deuda ha sido pagada/saldada?")) {
+                listaDeudores = listaDeudores.filter(d => d.id !== id);
+                guardarEnBD(STORE_DEUDORES, listaDeudores);
+                renderDeudores();
+            }
+        }
+
+        // FUNCIONES DE VENTAS JERÁRQUICAS (AÑO ➔ MES ➔ SEMANA ➔ DÍA) + ELIMINAR
+        function obtenerNumeroSemana(fecha) {
+            const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+            const diaNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - diaNum);
+            const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+        }
+
+        function obtenerNombreMes(mesNum) {
+            const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            return meses[mesNum];
+        }
+
+        function renderVentasArbol() {
+            const contenedor = document.getElementById('contenedor-arbol-ventas');
+            if (!contenedor) return;
+            if (listaVentas.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay ventas registradas.</p>`;
+                return;
+            }
+
+            // Agrupar ventas: Año -> Mes -> Semana -> Día
+            const arbol = {};
+            listaVentas.forEach(v => {
+                const fecha = new Date(v.fechaVenta || Date.now());
+                const anio = fecha.getFullYear();
+                const mes = fecha.getMonth(); // 0-11
+                const semana = obtenerNumeroSemana(fecha);
+                const diaStr = fecha.toISOString().split('T')[0];
+
+                if (!arbol[anio]) arbol[anio] = {};
+                if (!arbol[anio][mes]) arbol[anio][mes] = {};
+                if (!arbol[anio][mes][semana]) arbol[anio][mes][semana] = {};
+                if (!arbol[anio][mes][semana][diaStr]) arbol[anio][mes][semana][diaStr] = [];
+
+                arbol[anio][mes][semana][diaStr].push(v);
+            });
+
+            let html = '';
+            // Recorrer Años (orden descendente)
+            Object.keys(arbol).sort((a, b) => b - a).forEach(anio => {
+                html += `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+                    <h3 class="font-bold text-sm text-meridena-dark flex items-center gap-1.5 border-b border-slate-200 pb-1">
+                        📅 Año ${anio}
+                    </h3>`;
+                
+                // Recorrer Meses (orden descendente)
+                Object.keys(arbol[anio]).sort((a, b) => b - a).forEach(mes => {
+                    html += `<div class="ml-2 pl-2 border-l-2 border-meridena-sky/40 space-y-2 my-1.5">
+                        <h4 class="font-bold text-xs text-meridena-sky uppercase">🗓️ ${obtenerNombreMes(parseInt(mes))}</h4>`;
+                    
+                    // Recorrer Semanas (orden descendente)
+                    Object.keys(arbol[anio][mes]).sort((a, b) => b - a).forEach(semana => {
+                        html += `<div class="ml-2 pl-2 border-l-2 border-amber-300 space-y-1.5 my-1">
+                            <span class="text-[11px] font-bold text-amber-800">📌 Semana ${semana}</span>`;
+                        
+                        // Recorrer Días (orden descendente)
+                        Object.keys(arbol[anio][mes][semana]).sort((a, b) => new Date(b) - new Date(a)).forEach(dia => {
+                            html += `<div class="ml-2 pl-2 border-l-2 border-slate-300 space-y-1 my-1">
+                                <span class="text-[10px] font-bold text-slate-500">📆 Día: ${dia}</span>`;
+                            
+                            // Lista de ventas en ese día
+                            arbol[anio][mes][semana][dia].forEach(v => {
+                                html += `
+                                    <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-xs shadow-2xs my-1">
+                                        <div class="space-y-0.5">
+                                            <strong class="text-slate-900 block">${v.cliente}</strong>
+                                            <span class="text-slate-500">${v.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</span>
+                                            <span class="text-emerald-700 font-black block">$${v.total.toLocaleString()}</span>
+                                        </div>
+                                        <button onclick="eliminarVenta(${v.id})" class="text-red-400 hover:text-red-600 font-bold p-1 text-base" title="Eliminar venta">✕</button>
+                                    </div>
+                                `;
+                            });
+
+                            html += `</div>`; // fin día
+                        });
+                        html += `</div>`; // fin semana
+                    });
+                    html += `</div>`; // fin mes
+                });
+                html += `</div>`; // fin año
+            });
+
+            contenedor.innerHTML = html;
+        }
+
+        function eliminarVenta(id) {
+            if (confirm("¿Estás seguro de que deseas eliminar esta venta del historial?")) {
+                listaVentas = listaVentas.filter(v => v.id !== id);
+                guardarEnBD(STORE_VENTAS, listaVentas);
+                renderVentasArbol();
+            }
+        }
+    </script>
+</body>
+</html>
