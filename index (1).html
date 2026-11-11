@@ -37,10 +37,10 @@
         }
     </script>
     <style>
-        body { background-color: #F8FAFC; color: #2C3E50; padding-bottom: 70px; }
+        body { background-color: #FDFBF7; color: #3E2723; padding-bottom: 70px; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #F1F5F9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #F5EBE6; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #D7CCC8; border-radius: 4px; }
     </style>
 </head>
 <body class="min-h-screen font-sans flex flex-col antialiased selection:bg-meridena-sunLight selection:text-meridena-dark">
@@ -49,8 +49,8 @@
     <header class="bg-white border-b border-slate-200/80 shadow-xs sticky top-0 z-30">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
-                <div class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                    🏔️
+                <div class="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border border-slate-200 shrink-0 bg-white">
+                    <img src="logo.jpg" alt="La Merideña" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
                 </div>
                 <div>
                     <h1 class="font-brand font-bold text-lg text-meridena-dark leading-tight">La Merideña</h1>
@@ -133,11 +133,13 @@
 
         <!-- SECCIÓN 2: AGENDA SOLO HOY -->
         <div id="view-recordatorios" class="hidden space-y-4">
-            <div class="bg-amber-500 text-slate-950 p-4 rounded-2xl shadow-sm">
-                <span class="text-[10px] font-extrabold uppercase tracking-widest bg-white/90 text-amber-900 px-2.5 py-0.5 rounded-full">🔔 Urgente</span>
+            <!-- Encabezado con tono Terracota/Madera -->
+            <div class="bg-[#8D6E63] text-white p-4 rounded-2xl shadow-sm">
+                <span class="text-[10px] font-extrabold uppercase tracking-widest bg-[#EFEBE9] text-[#4E342E] px-2.5 py-0.5 rounded-full">🔔 Urgente</span>
                 <h2 class="font-brand font-bold text-xl mt-1">Entregas de HOY</h2>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <!-- Contenedor con detalles cálidos -->
+            <div class="bg-white p-4 rounded-2xl border border-[#D7CCC8] shadow-2xs">
                 <div id="container-entregas-hoy" class="space-y-3"></div>
             </div>
         </div>
