@@ -241,44 +241,57 @@
         </div>
     </nav>
 
-    <!-- MODAL MEJORADO: PAGAR EN ADELANTADO O ENTREGAR Y COBRAR -->
-    <div id="modal-completar" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white p-5 rounded-2xl max-w-sm w-full space-y-4 shadow-xl">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-                <h3 class="font-brand font-bold text-base text-slate-900" id="modal-titulo-cliente">Gestión del Pedido</h3>
-                <button onclick="cerrarModalCompletar()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+    <!-- MODAL GESTIONAR: 100% CLARO Y DECLARATIVO -->
+<div id="modal-completar" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white p-5 rounded-2xl max-w-sm w-full space-y-4 shadow-xl">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+            <h3 class="font-brand font-bold text-base text-slate-900" id="modal-titulo-cliente">Gestión del Pedido</h3>
+            <button onclick="cerrarModalCompletar()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        
+        <div class="space-y-3 text-xs">
+            <!-- Total del Pedido -->
+            <div class="bg-slate-50 p-2.5 rounded-xl flex justify-between items-center">
+                <span class="text-slate-600 font-semibold">Total del Pedido:</span>
+                <strong id="modal-total-venta" class="text-lg font-black text-slate-900">$0.00</strong>
+            </div>
+                    
+            <!-- Deuda Pendiente Actual -->
+            <div class="bg-amber-50 p-2.5 rounded-xl flex justify-between items-center border border-amber-100">
+                <span class="text-amber-800 font-bold">Deuda Pendiente Actual:</span>
+                <strong id="modal-deuda-pendiente" class="text-base font-black text-red-600">$0.00</strong>
+            </div>
+
+            <!-- Input de Monto -->
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Monto que paga hoy ($):</label>
+                <input type="number" id="modal-input-monto-pagado" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-lg font-black text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
             </div>
             
-            <div class="space-y-3 text-xs">
-                <div class="bg-slate-50 p-2.5 rounded-xl flex justify-between items-center">
-                    <span class="text-slate-600 font-semibold">Total Pedido:</span>
-                    <strong id="modal-total-venta" class="text-lg font-black text-slate-900">$0.00</strong>
-                </div>
-                
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Monto Abonado / Pagado ($):</label>
-                    <input type="number" id="modal-input-monto-pagado" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-lg font-black text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                </div>
-                
-                <p id="modal-aviso-deuda" class="text-xs text-amber-600 font-medium hidden">⚠️ El cliente quedará debiendo la diferencia en deudores.</p>
-            </div>
+            <p id="modal-aviso-deuda" class="text-xs text-amber-600 font-medium hidden">⚠️ El cliente quedará debiendo la diferencia en deudores.</p>
+        </div>
 
-            <!-- OPCIONES DE ACCIÓN -->
-            <div class="space-y-2 pt-2">
-                <button onclick="registrarPagoAdelantado()" class="w-full py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-black text-xs rounded-xl transition flex items-center justify-center gap-2">
-                    <i data-lucide="wallet" class="w-4 h-4 text-emerald-700"></i> REGISTRAR PAGO (SE QUEDA SIN ENTREGAR Ó HAY DEUDA)
-                </button>
-                
-                <button onclick="procesarCompletarPedido()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
-                    <i data-lucide="check-circle" class="w-4 h-4"></i> ENTREGAR Y COBRAR (FINALIZAR)
-                </button>
+        <!-- OPCIONES DE ACCIÓN: CLARAS Y SIN TÉRMINOS TÉCNICOS -->
 
-                <button onclick="cerrarModalCompletar()" class="w-full py-2 text-slate-400 font-bold text-xs hover:text-slate-600">
-                    Cancelar
-                </button>
-            </div>
+        <div class="space-y-2 pt-2">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">Selecciona qué está pasando:</p>
+
+            <!-- Camino 3 y 4: Dejó seña o pagó una parte, pero NO se lleva el producto todavía (Guarda en stock / Aparta) -->
+            <button onclick="gestionarPedidoAccion('solo-pago', false)" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
+                <i data-lucide="wallet" class="w-4 h-4 text-white"></i> 💵 REGISTRAR PAGO (Falta entregar)
+            </button>
+            
+            <!-- Camino 1: Entrega y paga el total en el acto -->
+            <button onclick="gestionarPedidoAccion('entregar-total', true)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
+                <i data-lucide="check-circle" class="w-4 h-4"></i> ✅ ENTREGAR Y COBRAR (Finalizar venta)
+            </button>
+
+            <button onclick="cerrarModalCompletar()" class="w-full py-2 text-slate-400 font-bold text-xs hover:text-slate-600">
+                Cancelar
+            </button>
         </div>
     </div>
+</div>
 
     <!-- SCRIPTS -->
     <script>
@@ -332,6 +345,91 @@
                 db = e.target.result;
                 cargarDatosDesdeBD();
             };
+        }
+        // FUNCIÓN CENTRAL DE GESTIÓN (Maneja acumulación real sin reiniciar y respeta stock)
+        function gestionarPedidoAccion(tipoAccion, seEntregaFísicamente) {
+            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+            if (pedidoIndex === -1) return;
+            const pedido = listaPedidos[pedidoIndex];
+
+            const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+            const totalPedido = Number(pedido.total || 0);
+            
+            // 1. ACUMULACIÓN EXACTA: Sumamos lo que ya pagó antes con lo que pone hoy
+            const montoAnteriorTotal = Number(pedido.montoPagado || 0);
+            const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
+            
+            // Guardamos el nuevo acumulado en el pedido
+            pedido.montoPagado = nuevoMontoPagadoTotal;
+            
+            // Calculamos el saldo real restante
+            const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
+
+            // 2. CONTROL DE STOCK: Si el producto sale o se aparta, se descuenta una sola vez
+            if (!pedido.stockDescontado) {
+                pedido.items.forEach(item => {
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                    if (prod) {
+                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                    }
+                });
+                pedido.stockDescontado = true;
+                guardarEnBD(STORE_STOCK, catalogoProductos);
+                if (typeof renderStockMovil === 'function') renderStockMovil();
+                if (typeof renderCatalogo === 'function') renderCatalogo();
+            }
+
+            // 3. ACCIÓN SEGÚN EL BOTÓN SELECCIONADO
+            if (tipoAccion === 'solo-pago') {
+                // Solo guardaba seña o pago parcial, el pedido sigue en pendientes activo
+                guardarEnBD(STORE_NAME, listaPedidos);
+                alert(`✅ Pago de $${montoIngresado.toLocaleString()} registrado. Acumulado pagado: $${nuevoMontoPagadoTotal.toLocaleString()}. Quedan $${saldoPendienteRestante.toLocaleString()} pendientes.`);
+            
+            } else if (tipoAccion === 'entregar-total' || tipoAccion === 'entregar-con-deuda') {
+                // Si al entregar queda saldo pendiente, lo acumulamos en la cuenta del cliente (Deudores)
+                if (saldoPendienteRestante > 0) {
+                    const deudorExistente = listaDeudores.find(d => d.cliente.toLowerCase().trim() === pedido.cliente.toLowerCase().trim());
+
+                    if (deudorExistente) {
+                        deudorExistente.montoTotal = Number(deudorExistente.montoTotal || deudorExistente.saldoPendiente || 0) + saldoPendienteRestante;
+                        deudorExistente.saldoPendiente = Number(deudorExistente.saldoPendiente || 0) + saldoPendienteRestante;
+                        deudorExistente.concepto = `Acumulado (Pedido #${pedido.id})`;
+                        deudorExistente.fecha = new Date().toLocaleDateString();
+                    } else {
+                        listaDeudores.push({
+                            id: Date.now(),
+                            cliente: pedido.cliente,
+                            montoTotal: saldoPendienteRestante,
+                            saldoPendiente: saldoPendienteRestante,
+                            concepto: `Saldo pendiente pedido #${pedido.id}`,
+                            fecha: new Date().toLocaleDateString()
+                        });
+                    }
+                    guardarEnBD(STORE_DEUDORES, listaDeudores);
+                }
+
+                // Registrar venta definitiva en el historial consolidado
+                listaVentas.unshift({ 
+                    id: Date.now(),
+                    timestamp: Date.now(),
+                    cliente: pedido.cliente,
+                    fecha: new Date().toLocaleDateString() + " " + (pedido.horaRegistro || ''),
+                    items: pedido.items,
+                    total: totalPedido,
+                    montoPagado: nuevoMontoPagadoTotal
+                });
+                guardarEnBD(STORE_VENTAS, listaVentas);
+                if (typeof renderVentasArbol === 'function') renderVentasArbol();
+
+                // Eliminar de pedidos pendientes activos porque ya se entregó/finalizó
+                listaPedidos.splice(pedidoIndex, 1);
+                guardarEnBD(STORE_NAME, listaPedidos);
+
+                alert(`🎉 ¡Pedido entregado y finalizado!${saldoPendienteRestante > 0 ? ' Se registró una deuda de $' + saldoPendienteRestante.toLocaleString() + ' en la cuenta del cliente.' : ' Pagado al 100%.'}`);
+            }
+
+            cerrarModalCompletar();
+            if (typeof actualizarTodo === 'function') actualizarTodo();
         }
 
         function guardarEnBD(storeName, lista) {
@@ -933,116 +1031,174 @@
             `).join('');
         }
 
-        function abrirModalCompletar(id) {
-            pedidoEnProcesoId = id;
-            const pedido = listaPedidos.find(p => p.id === id);
+       function abrirModalCompletar(id) {
+            pedidoEnProcesoId = Number(id);
+            const pedido = listaPedidos.find(p => Number(p.id) === Number(id));
             if (!pedido) return;
-            document.getElementById('modal-titulo-cliente').innerText = `Gestionar: ${pedido.cliente}`;
-            document.getElementById('modal-total-venta').innerText = `$${pedido.total.toLocaleString()}`;
-            document.getElementById('modal-input-monto-pagado').value = pedido.total;
+
+            const totalPedido = Number(pedido.total || 0);
+            
+            // Nos aseguramos de que montoPagado sea siempre un número acumulado
+            const montoYaPagado = Number(pedido.montoPagado || 0);
+            
+            // La deuda pendiente real es el Total menos TODO lo que ya se pagó acumulado
+            const saldoPendienteReal = Math.max(0, totalPedido - montoYaPagado);
+
+            // Mostrar textos en el modal
+            document.getElementById('modal-titulo-cliente').innerText = `Gestión: ${pedido.cliente}`;
+            document.getElementById('modal-total-venta').innerText = `$${totalPedido.toLocaleString()}`;
+            
+            const labelDeuda = document.getElementById('modal-deuda-pendiente');
+            if (labelDeuda) {
+                labelDeuda.innerText = `$${saldoPendienteReal.toLocaleString()}`;
+            }
+
+            // Autocompletar el input con lo que EXACTAMENTE falta pagar hoy
+            const inputMonto = document.getElementById('modal-input-monto-pagado');
+            if (inputMonto) {
+                inputMonto.value = saldoPendienteReal;
+            }
+            
             document.getElementById('modal-completar').classList.remove('hidden');
         }
 
         function cerrarModalCompletar() {
             document.getElementById('modal-completar').classList.add('hidden');
-            pedidoEnProcesoId = null;
         }
 
+        // ENTREGAR Y COBRAR / FINALIZAR (Acumula la deuda en la cuenta corriente del cliente)
         function procesarCompletarPedido() {
-            const pedidoIndex = listaPedidos.findIndex(p => p.id === pedidoEnProcesoId);
+            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
             if (pedidoIndex === -1) return;
             const pedido = listaPedidos[pedidoIndex];
 
-            const nuevoAbono = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
-            
-            const abonadoAnterior = pedido.montoPagado || 0;
-            const totalAbonado = abonadoAnterior + nuevoAbono;
-            const saldoPendiente = pedido.total - totalAbonado;
+            const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+            const totalPedido = Number(pedido.total || 0);
+            const montoAnterior = Number(pedido.montoPagado || 0);
+            const saldoPendienteActual = Math.max(0, totalPedido - montoAnterior);
 
-            pedido.items.forEach(item => {
-                const prod = catalogoProductos.find(p => p.id === item.productoId);
-                if (prod) {
-                    prod.stockActual = Math.max(0, prod.stockActual - item.cantidad);
+            if (montoIngresado > saldoPendienteActual) {
+                const continuar = confirm(`⚠️ El monto ingresado supera el saldo pendiente real de este pedido ($${saldoPendienteActual.toLocaleString()}). ¿Deseas continuar?`);
+                if (!continuar) return;
+            }
+
+            const totalAbonadoFinal = montoAnterior + montoIngresado;
+            pedido.montoPagado = totalAbonadoFinal;
+            const saldoFinalPedido = totalPedido - totalAbonadoFinal;
+
+            descontarStockSiEsNecesario(pedido);
+
+            // ⭐ ACUMULAR DEUDA EN LA CUENTA CORRIENTE DEL CLIENTE
+            if (saldoFinalPedido > 0) {
+                // Buscamos si el cliente ya tiene una deuda registrada en la lista general
+                const deudorExistente = listaDeudores.find(d => d.cliente.toLowerCase().trim() === pedido.cliente.toLowerCase().trim());
+
+                if (deudorExistente) {
+                    // Si ya existe, le sumamos el nuevo saldo pendiente al total que ya debía
+                    deudorExistente.montoTotal = Number(deudorExistente.montoTotal || deudorExistente.saldoPendiente || 0) + saldoFinalPedido;
+                    deudorExistente.saldoPendiente = Number(deudorExistente.saldoPendiente || 0) + saldoFinalPedido;
+                    deudorExistente.concepto = `Acumulado (Incluye pedido #${pedido.id})`;
+                    deudorExistente.fecha = new Date().toLocaleDateString();
+                } else {
+                    // Si es su primera deuda, la creamos normalmente
+                    listaDeudores.push({
+                        id: Date.now(),
+                        cliente: pedido.cliente,
+                        montoTotal: saldoFinalPedido,
+                        saldoPendiente: saldoFinalPedido,
+                        concepto: `Saldo pendiente pedido #${pedido.id}`,
+                        fecha: new Date().toLocaleDateString()
+                    });
                 }
-            });
-
-            guardarEnBD(STORE_STOCK,catalogoProductos);
-
-            if (saldoPendiente > 0) {
-                const nuevaDeuda = {
-                    id: Date.now(),
-                    cliente: pedido.cliente,
-                    monto: saldoPendiente,
-                    concepto: `Saldo pendiente final pedido #${pedido.id}`
-                };
-                listaDeudores.push(nuevaDeuda);
-                guardarEnBD(STORE_DEUDORES, listaDeudores);
-            } else {
-                // Si pagó el total, limpiamos de deudores si había algo pendiente de este pedido
-                listaDeudores = listaDeudores.filter(d => !d.concepto.includes(`Pedido #${pedido.id}`));
                 guardarEnBD(STORE_DEUDORES, listaDeudores);
             }
 
-            // Guardar la venta en la lista y en la base de datos
-            listaVentas.push({ 
-                ...pedido, 
-                montoPagado: totalAbonado, 
-                fechaVenta: new Date().toISOString() 
+            // Registrar venta definitiva en el historial
+            listaVentas.unshift({ 
+                id: Date.now(),
+                timestamp: Date.now(),
+                cliente: pedido.cliente,
+                fecha: new Date().toLocaleDateString() + " " + (pedido.horaRegistro || ''),
+                items: pedido.items,
+                total: totalPedido,
+                montoPagado: totalAbonadoFinal
             });
             guardarEnBD(STORE_VENTAS, listaVentas);
-            renderVentasArbol(); // <--- ESTO ES LO QUE FALTABA PARA QUE SE REFLEJE EN PANTALLA
+            if (typeof renderVentasArbol === 'function') renderVentasArbol();
 
-            // Remover de pedidos pendientes
+            // Retirar de pedidos pendientes
             listaPedidos.splice(pedidoIndex, 1);
             guardarEnBD(STORE_NAME, listaPedidos);
 
+            alert(`🎉 ¡Pedido finalizado con éxito!${saldoFinalPedido > 0 ? ' Se acumuló la deuda en la cuenta de ' + pedido.cliente : ''}`);
             cerrarModalCompletar();
-            renderCatalogo();
-            actualizarTodo();
+            if (typeof actualizarTodo === 'function') actualizarTodo();
+        }
+
+        function renderListadoGeneral() {
+            const contenedor = document.getElementById('contenedor-listado-pedidos');
+            if (!contenedor) return;
             
-            alert(`¡Pedido finalizado y cobrado! ${saldoPendiente > 0 ? 'Se registró un saldo adeudado de $' + saldoPendiente.toLocaleString() : ''}`);
+            if (listaPedidos.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
+                return;
+            }
+
+            contenedor.innerHTML = listaPedidos.map(p => {
+                const montoPagado = Number(p.montoPagado || 0);
+                const saldoAdeudado = Number(p.total) - montoPagado;
+
+                return `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
+                        <div>
+                            <strong class="text-slate-800">#${p.id} - ${p.cliente}</strong>
+                            <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
+                            <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
+                            <div class="mt-1 font-bold">
+                                <span class="text-slate-600">Total: $${Number(p.total).toLocaleString()}</span>
+                                ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
+                            <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
-function registrarPagoAdelantado() {
-    const pedido = listaPedidos.find(p => p.id === pedidoEnProcesoId);
-    if (!pedido) return;
+// 2. REGISTRAR PAGO (Resta correctamente sobre la deuda actual acumulada)
+        function registrarPagoAdelantado() {
+            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+            if (pedidoIndex === -1) return;
+            const pedido = listaPedidos[pedidoIndex];
 
-    const nuevoAbono = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
-    
-    // Acumulamos los pagos parciales
-    pedido.montoPagado = (pedido.montoPagado || 0) + nuevoAbono;
-    pedido.pagadoAdelantado = true;
+            const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+            const totalPedido = Number(pedido.total || 0);
+            
+            // ⭐ EL SECRETO DE LA ACUMULACIÓN:
+            // Tomamos lo que YA venía pagado de antes y le SUMAMOS estrictamente lo que ingresó hoy
+            const montoAnteriorTotal = Number(pedido.montoPagado || 0);
+            const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
 
-    const saldoPendiente = pedido.total - pedido.montoPagado;
+            // Guardamos el nuevo acumulado total en el pedido
+            pedido.montoPagado = nuevoMontoPagadoTotal;
+            
+            // Calculamos cuánto queda debiendo en base al total y el nuevo acumulado
+            const nuevoSaldoPendiente = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
 
-    // Si con este abono aún queda debiendo parte del total
-    if (saldoPendiente > 0) {
-        const nuevaDeuda = {
-            id: Date.now(),
-            cliente: pedido.cliente,
-            monto: saldoPendiente,
-            concepto: `Deuda restante abonada parcialmente (Pedido #${pedido.id})`
-        };
-        
-        // Actualizamos o agregamos la deuda restante en la lista
-        const indexDeuda = listaDeudores.findIndex(d => d.concepto.includes(`Pedido #${pedido.id}`));
-        if (indexDeuda !== -1) {
-            listaDeudores[indexDeuda].monto = saldoPendiente;
-        } else {
-            listaDeudores.push(nuevaDeuda);
+            // Descontar stock (si aún no se había descontado)
+            descontarStockSiEsNecesario(pedido);
+
+            // Guardar cambios en IndexedDB
+            guardarEnBD(STORE_NAME, listaPedidos);
+
+            alert(`✅ Pago de $${montoIngresado.toLocaleString()} registrado. (Total pagado acumulado: $${nuevoMontoPagadoTotal.toLocaleString()}). Deuda restante: $${nuevoSaldoPendiente.toLocaleString()}`);
+            
+            cerrarModalCompletar();
+            if (typeof actualizarTodo === 'function') actualizarTodo();
         }
-        guardarEnBD(STORE_DEUDORES, listaDeudores);
-    } else {
-        // Si ya cubrió el total con abonos, eliminamos si existía una deuda registrada de este pedido
-        listaDeudores = listaDeudores.filter(d => !d.concepto.includes(`Pedido #${pedido.id}`));
-        guardarEnBD(STORE_DEUDORES, listaDeudores);
-    }
-
-    guardarEnBD(STORE_NAME, listaPedidos);
-    cerrarModalCompletar();
-    actualizarTodo();
-    alert(`¡Abono registrado! Total abonado hasta ahora: $${pedido.montoPagado.toLocaleString()} (Quedan debiendo: $${Math.max(0, saldoPendiente).toLocaleString()})`);
-}
 
         function registrarPagoAdelantado() {
             const pedido = listaPedidos.find(p => p.id === pedidoEnProcesoId);
