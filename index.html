@@ -105,7 +105,7 @@
       <!-- CATÁLOGO -->
       <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
         <h2 class="font-brand font-bold text-base text-meridena-dark mb-3 flex items-center gap-2">
-          <i data-lucide="package" class="w-4 h-4 text-amber-500"></i> Catálogo (Toca para sumar o editar precio)
+          <i data-lucide="package" class="w-4 h-4 text-amber-500"></i> Catálogo y Precios
         </h2>
         <div class="grid grid-cols-1 gap-2.5" id="contenedor-catalogo"></div>
       </div>
@@ -403,15 +403,18 @@
       }
     }
 
-    // GESTIÓN DE PRECIOS EN CATÁLOGO CON PERSISTENCIA
-    async function actualizarPrecioDesdeCatalogo(productoId, nuevoPrecio) {
-      const precioNum = parseFloat(nuevoPrecio);
+    // BOTÓN MODIFICAR PRECIO Y GUARDAR EN LA NUBE
+    async function guardarPrecioProducto(productoId) {
+      const inputEl = document.getElementById(`input-precio-${productoId}`);
+      if (!inputEl) return;
+      const nuevoPrecio = parseFloat(inputEl.value);
+      
       const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
-      if (prod && !isNaN(precioNum)) {
-        prod.precio = precioNum;
-        // Guardamos todo el array de productos actualizado con su stock y precio en Supabase
+      if (prod && !isNaN(nuevoPrecio)) {
+        prod.precio = nuevoPrecio;
         await guardarEnSupabase(STORE_STOCK, catalogoProductos);
-        renderStockMovil();
+        alert(`¡Precio de "${prod.nombre}" actualizado a $${nuevoPrecio.toLocaleString()} en la nube! 🚀`);
+        renderCatalogo();
       }
     }
 
@@ -419,8 +422,8 @@
       const contenedor = document.getElementById('contenedor-catalogo');
       if (!contenedor) return;
       contenedor.innerHTML = catalogoProductos.map(prod => `
-        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-between">
-          <div class="flex items-center justify-between mb-2.5">
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-between space-y-2.5">
+          <div class="flex items-center justify-between">
             <div class="flex items-center gap-2.5">
               <span class="text-3xl">${prod.emoji}</span>
               <div>
@@ -428,17 +431,22 @@
                 <span class="text-xs text-slate-500 font-semibold">Stock: ${prod.stockActual} u.</span>
               </div>
             </div>
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-1.5">
               <span class="text-xs text-slate-400 font-bold">$</span>
-              <input type="number" value="${prod.precio}" onchange="actualizarPrecioDesdeCatalogo(${prod.id}, this.value)" class="w-24 px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-base font-black text-emerald-700 text-right">
+              <input type="number" id="input-precio-${prod.id}" value="${prod.precio}" class="w-24 px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-base font-black text-emerald-700 text-right">
             </div>
           </div>
-          <div class="flex flex-wrap gap-1.5">
-            ${prod.rapidos.map(btn => `
-              <button onclick="agregarAlCarrito(${prod.id}, ${btn.cant}, '${btn.text}')" class="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs rounded-xl transition">
-                + ${btn.label}
-              </button>
-            `).join('')}
+          <div class="flex items-center justify-between pt-1 border-t border-slate-200/60">
+            <button onclick="guardarPrecioProducto(${prod.id})" class="px-2.5 py-1 bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-[10px] rounded-lg transition shadow-2xs">
+              💾 Modificar Precio
+            </button>
+            <div class="flex flex-wrap gap-1">
+              ${prod.rapidos.map(btn => `
+                <button onclick="agregarAlCarrito(${prod.id}, ${btn.cant}, '${btn.text}')" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg transition">
+                  + ${btn.label}
+                </button>
+              `).join('')}
+            </div>
           </div>
         </div>
       `).join('');
