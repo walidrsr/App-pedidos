@@ -834,15 +834,17 @@
             const montoAnteriorTotal = Number(pedido.montoPagado || 0);
             const saldoPendienteActual = Math.max(0, totalPedido - montoAnteriorTotal);
 
-            // 💡 AVISO SI SE PASA DEL MONTO DE LA DEUDA (Pero NO lo restringe)
+            // 💡 Aviso si el pago ingresado supera la deuda actual (sin restringirlo)
             if (montoIngresado > saldoPendienteActual) {
                 alert(`⚠️ Aviso: El monto ingresado ($${montoIngresado.toLocaleString()}) supera el saldo pendiente actual ($${saldoPendienteActual.toLocaleString()}). Se registrará de todas formas.`);
             }
 
             const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
-            pedido.montoPagado = nuevoMontoPagadoTotal; // Actualizamos localmente de inmediato
             const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
             const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
+
+            // Actualizar localmente de inmediato
+            pedido.montoPagado = nuevoMontoPagadoTotal;
 
             // 2. Descontar stock si aún no se había hecho
             if (!pedido.stockDescontado) {
@@ -880,37 +882,38 @@
                 await db.from('pedidos').delete().eq('id', Number(pedido.id));
                 await db.from('deudores').delete().ilike('nombreCliente', nombreClienteLimpio);
                 
-                // Quitar de la lista local de pedidos
                 listaPedidos.splice(pedidoIndex, 1);
                 alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada con éxito.`);
             } 
             // 4. CASO B: Pago Parcial (Queda saldo pendiente)
             else {
-                // Actualizar el monto pagado en la tabla 'pedidos'
-                await db.from('pedidos')
-                    .update({ montoPagado: Number(pedido.montoPagado), stockDescontado: true })
+                // ⭐ AQUÍ ESTABA EL ERROR: Actualizamos explícitamente 'montoPagado' en la tabla 'pedidos' de Supabase
+                const { error: errPedidoUp } = await db.from('pedidos')
+                    .update({ 
+                        montoPagado: Number(nuevoMontoPagadoTotal), 
+                        stockDescontado: true 
+                    })
                     .eq('id', Number(pedido.id));
 
-                // Buscar si el cliente ya tiene un registro activo en la tabla 'deudores'
+                if (errPedidoUp) {
+                    console.error("Error al actualizar monto pagado en pedido:", errPedidoUp.message);
+                }
+
+                // Gestionar tabla 'deudores'
                 const { data: deudorExistenteArr, error: errBusqueda } = await db.from('deudores').select('*').ilike('nombreCliente', nombreClienteLimpio);
                 
                 if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
-                    // ⭐ CORRECCIÓN: Actualizamos con el saldo exacto restante, NO sumando acumulados erróneos
                     const deudorDb = deudorExistenteArr[0];
                     await db.from('deudores')
                         .update({ montoDeuda: saldoPendienteRestante })
                         .eq('id', Number(deudorDb.id));
                 } else {
-                    // Si no estaba en deudores, se crea con el saldo exacto
                     const nuevoDeudor = {
                         id: Number(pedido.id),
                         nombreCliente: nombreClienteLimpio,
                         montoDeuda: saldoPendienteRestante
                     };
-                    const { error: errInsDeudor } = await db.from('deudores').insert([nuevoDeudor]);
-                    if (errInsDeudor) {
-                        console.error("Error al registrar deudor:", errInsDeudor.message);
-                    }
+                    await db.from('deudores').insert([nuevoDeudor]);
                 }
                 alert(`💵 Pago parcial registrado. El cliente queda debiendo $${saldoPendienteRestante.toLocaleString()}.`);
             }
