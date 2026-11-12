@@ -826,27 +826,23 @@
     const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
 
     if (montoIngresado <= 0) {
-        alert("Por favor, ingresa un monto válido mayor a 0.");
+        alert("Por favor, ingresa un monto válido mayor a 0 para registrar el pago.");
         return;
     }
 
     const totalPedido = Number(pedido.total || 0);
-    // ⭐ ACUMULAMOS CORRECTAMENTE EL MONTO PAGADO ANTERIOR + LO QUE PAGA HOY
+    // 💡 ACUMULAMOS TODOS LOS PAGOS HISTÓRICOS REALIZADOS HASTA EL MOMENTO
     const montoAnteriorTotal = Number(pedido.montoPagado || 0);
     const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
+    
+    // El saldo pendiente real es el Total menos la suma de TODOS los pagos hechos
     const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
     const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
 
-    // Validar si paga de más (aviso pero no restringe)
-    const saldoPendienteActual = Math.max(0, totalPedido - montoAnteriorTotal);
-    if (montoIngresado > saldoPendienteActual) {
-        alert(`⚠️ Aviso: El monto ingresado supera el saldo pendiente actual ($${saldoPendienteActual.toLocaleString()}). Se registrará de todas formas.`);
-    }
-
-    // Actualizamos la variable local de inmediato
+    // Actualizamos localmente
     pedido.montoPagado = nuevoMontoPagadoTotal;
 
-    // Descontar stock si no se había hecho
+    // Descontar stock si aún no se había hecho
     if (!pedido.stockDescontado) {
         for (const item of pedido.items) {
             const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
@@ -858,55 +854,71 @@
         pedido.stockDescontado = true;
     }
 
-    if (saldoPendienteRestante === 0) {
-        // --- CASO PAGO TOTAL ---
+    // ⭐ SI EL SALDO RESTANTE ES 0 (O EL CLIENTE PAGÓ DE MÁS / IGUAL AL TOTAL)
+    if (saldoPendienteRestante === 0 || tipoAccion === 'entregar-total') {
+        // 1. Verificar o insertar cliente
+        const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
+        if (!clienteCheck || clienteCheck.length === 0) {
+            await db.from('clientes').insert([{ nombre: nombreClienteLimpio, telefono: 'Sin teléfono' }]);
+        }
+
+        // 2. Registrar la venta definitiva en la tabla 'ventas'
         const datosVentaSupabase = {
             id: Number(pedido.id),
             total: Number(totalPedido),
-            metodo_pago: 'Pagado 100%',
+            metodo_pago: nuevoMontoPagadoTotal >= totalPedido ? 'Pagado 100%' : 'Pago Parcial Saldado',
             nombreCliente: nombreClienteLimpio,
             detalles_venta: { items: pedido.items || [], horaRegistro: pedido.horaRegistro || '' }
         };
-        await db.from('ventas').insert([datosVentaSupabase]);
+
+        const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
+        if (errVenta) {
+            alert("Error al guardar la venta: " + errVenta.message);
+            return;
+        }
+
+        // 3. Eliminar de pedidos activos y de deudores automáticamente
         await db.from('pedidos').delete().eq('id', Number(pedido.id));
-        await db.from('deudores').delete().ilike('nombreCliente', nombreClienteLimpio);
+        await db.from('deudores').delete().eq('id', Number(pedido.id));
+
         listaPedidos.splice(pedidoIndex, 1);
-        alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada.`);
-    } else {
-        // --- CASO PAGO PARCIAL ---
-        // ⭐ 1. GUARDAMOS EL ACUMULADO DE 'montoPagado' EN LA TABLA PEDIDOS DE SUPABASE
-        const { error: errPedidoUp } = await db.from('pedidos')
+        alert(`🎉 ¡Deuda cancelada por completo! El pedido #${pedido.id} se ha movido al historial de ventas.`);
+    } 
+    // 💡 CASO: SIGUE QUEDANDO DEUDA (PAGO PARCIAL)
+    else {
+        // 1. Actualizar el acumulado de 'montoPagado' en la tabla 'pedidos'
+        await db.from('pedidos')
             .update({ 
                 montoPagado: Number(nuevoMontoPagadoTotal), 
                 stockDescontado: true 
             })
             .eq('id', Number(pedido.id));
 
-        if (errPedidoUp) console.error("Error al actualizar montoPagado:", errPedidoUp.message);
-
-        // ⭐ 2. ACTUALIZAMOS LA TABLA DEUDORES CON EL SALDO RESTANTE EXACTO
-        const { data: deudorExistenteArr } = await db.from('deudores').select('*').ilike('nombreCliente', nombreClienteLimpio);
+        // 2. Actualizar la tabla 'deudores' con el saldo exacto pendiente (Total - Suma de pagos)
+        const { data: deudorExistenteArr } = await db.from('deudores').select('*').eq('id', Number(pedido.id));
         
         if (deudorExistenteArr && deudorExistenteArr.length > 0) {
-            const deudorDb = deudorExistenteArr[0];
             await db.from('deudores')
                 .update({ montoDeuda: saldoPendienteRestante })
-                .eq('id', Number(deudorDb.id));
+                .eq('id', Number(pedido.id));
         } else {
             await db.from('deudores').insert([{
                 id: Number(pedido.id),
                 nombreCliente: nombreClienteLimpio,
-                montoDeuda: saldoPendienteRestante
+                montoDeuda: saldoPendienteRestante,
+                concepto: `Saldo pendiente pedido #${pedido.id}`
             }]);
         }
-        alert(`💵 Pago registrado. El cliente abonó $${montoIngresado.toLocaleString()}. Nuevo debe: $${saldoPendienteRestante.toLocaleString()}`);
+
+        alert(`💵 Pago registrado. Abonó $${montoIngresado.toLocaleString()}. Nuevo debe: $${saldoPendienteRestante.toLocaleString()}`);
     }
 
+    // Limpiar input y cerrar modal
     if (inputMontoEl) inputMontoEl.value = '';
     const modalGestion = document.getElementById('modal-completar');
     if (modalGestion) modalGestion.classList.add('hidden');
 
-    // Sincronizar y refrescar pantalla al instante
+    // Sincronizar y forzar redibujado de la interfaz inmediatamente
     await cargarDatosDesdeSupabase();
     if (typeof actualizarTodo === 'function') {
         actualizarTodo();
@@ -1019,35 +1031,37 @@
         }
 
         function renderListadoGeneral() {
-            const contenedor = document.getElementById('contenedor-listado-pedidos');
-            if (!contenedor) return;
-            if (listaPedidos.length === 0) {
-                contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
-                return;
-            }
-            contenedor.innerHTML = listaPedidos.map(p => {
-                const montoPagado = Number(p.montoPagado || 0);
-                const saldoAdeudado = Number(p.total) - montoPagado;
-                return `
-                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
-                        <div>
-                            <strong class="text-slate-800">#${p.id} - ${p.cliente}</strong>
-                            <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
-                            <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
-                            <div class="mt-1 font-bold">
-                                <span class="text-slate-600">Total: $${Number(p.total).toLocaleString()}</span>
-                                ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
-                            </div>
-                        </div>
-                        <div class="flex flex-col gap-1">
-                            <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
-                            <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
-                            <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
-                        </div>
+    const contenedor = document.getElementById('contenedor-listado-pedidos');
+    if (!contenedor) return;
+    if (listaPedidos.length === 0) {
+        contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
+        return;
+    }
+    contenedor.innerHTML = listaPedidos.map(p => {
+        const total = Number(p.total || 0);
+        const montoPagado = Number(p.montoPagado || 0);
+        const saldoAdeudado = Math.max(0, total - montoPagado); // ⭐ Resta exacta en tiempo real
+
+        return `
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
+                <div>
+                    <strong class="text-slate-800">#${p.id} - ${p.cliente}</strong>
+                    <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
+                    <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
+                    <div class="mt-1 font-bold">
+                        <span class="text-slate-600">Total: $${total.toLocaleString()}</span>
+                        ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
                     </div>
-                `;
-            }).join('');
-        }  
+                </div>
+                <div class="flex flex-col gap-1">
+                    <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
+                    <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
+                    <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
 
 
         async function completarPedidoDirecto(id) {
