@@ -341,34 +341,41 @@
 }
 
         // ⭐ CORRECCIÓN 1: CARGA INICIAL ROBUSTA Y AUTO-POBLADO DE STOCK
-        async function cargarDatosDesdeSupabase() {
+       async function cargarDatosDesdeSupabase() {
             try {
                 const { data: prodData, error: errProd } = await db.from('stock').select('*');
+                
                 if (!errProd && prodData && prodData.length > 0) {
+                    // ⭐ Leemos usando 'cantidad' que es el nombre real de tu columna en Supabase
                     catalogoProductos = catalogoProductos.map(catItem => {
                         const found = prodData.find(p => Number(p.id) === Number(catItem.id));
                         return found ? { 
                             ...catItem, 
                             precio: Number(found.precio ?? catItem.precio), 
-                            stockActual: Number(found.stockActual ?? found.cantidad ?? catItem.stockActual) 
+                            stockActual: Number(found.cantidad ?? catItem.stockActual ?? catItem.stockActual) 
                         } : catItem;
                     });
                 } else {
-                    console.warn("⚠️ La tabla stock está vacía. Poblando catálogo inicial...");
+                    console.warn("⚠️ La tabla stock está vacía en Supabase. Poblando catálogo inicial...");
+                    // ⭐ Insertamos usando los nombres exactos de tus columnas: id, nombre, cantidad, precio
                     const productosParaInsertar = catalogoProductos.map(p => ({
                         id: Number(p.id),
                         nombre: String(p.nombre),
-                        emoji: String(p.emoji || ''),
-                        precio: Number(p.precio),
-                        stockActual: Number(p.stockActual)
+                        cantidad: Number(p.stockActual), // Mapeado a la columna 'cantidad' de tu tabla
+                        precio: Number(p.precio)
                     }));
-                    await db.from('stock').upsert(productosParaInsertar, { onConflict: 'id' });
+                    
+                    const { error: errInsert } = await db.from('stock').upsert(productosParaInsertar, { onConflict: 'id' });
+                    if (errInsert) {
+                        console.error("Error al poblar stock inicial:", errInsert.message);
+                    }
                 }
 
                 renderCatalogo();
                 renderStockMovil();
                 renderSelectProveedores();
 
+                // 2. Cargar Pedidos
                 const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
                 if (!errPed && pedData) {
                     listaPedidos = pedData.map(p => ({
@@ -385,6 +392,7 @@
                     }));
                 }
 
+                // 3. Cargar Ventas
                 const { data: ventData, error: errVent } = await db.from('ventas').select('*');
                 if (!errVent && ventData) {
                     listaVentas = ventData.map(v => ({
@@ -400,6 +408,7 @@
                     if (typeof renderVentasArbol === 'function') renderVentasArbol();
                 }
 
+                // 4. Cargar Deudores
                 const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
                 if (!errDeu && deuData) {
                     listaDeudores = deuData.map(d => ({
@@ -411,6 +420,7 @@
                 }
 
                 actualizarTodo();
+                console.log("✅ Datos y stock cargados correctamente desde Supabase.");
             } catch (err) {
                 console.error("Error al cargar datos desde Supabase:", err);
             }
@@ -418,32 +428,32 @@
 
         // ⭐ CORRECCIÓN 2: GUARDAR PRECIO INDIVIDUAL DE FORMA PERMANENTE
         async function guardarPrecioProducto(productoId) {
-    const input = document.getElementById(`input-precio-${productoId}`);
-    if (!input) return;
-    const nuevoPrecio = parseFloat(input.value);
-    const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
-    
-    if (prod && !isNaN(nuevoPrecio)) {
-        prod.precio = nuevoPrecio;
-        
-        // ⭐ Actualizamos solo id, precio y stockActual (sin emoji)
-        const { error } = await db
-            .from('stock')
-            .update({ precio: nuevoPrecio })
-            .eq('id', Number(productoId));
+                const input = document.getElementById(`input-precio-${productoId}`);
+                if (!input) return;
+                const nuevoPrecio = parseFloat(input.value);
+                const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
+                
+                if (prod && !isNaN(nuevoPrecio)) {
+                    prod.precio = nuevoPrecio;
+                    
+                    // Actualizamos usando 'id' y 'precio'
+                    const { error } = await db
+                        .from('stock')
+                        .update({ precio: nuevoPrecio })
+                        .eq('id', Number(productoId));
 
-        if (error) {
-            console.error("Error al actualizar precio en Supabase:", error.message);
-            alert("No se pudo guardar el precio: " + error.message);
-        } else {
-            console.log(`💰 Precio actualizado a $${nuevoPrecio} para el producto #${productoId}`);
-            alert(`✅ Precio guardado correctamente en la nube.`);
+                    if (error) {
+                        console.error("Error al actualizar precio:", error.message);
+                        alert("No se pudo guardar el precio: " + error.message);
+                    } else {
+                        console.log(`💰 Precio actualizado a $${nuevoPrecio} para el producto #${productoId}`);
+                        alert(`✅ Precio guardado correctamente en la nube.`);
+                    }
+                    
+                    renderCatalogo();
+                    renderStockMovil();
+                }
         }
-        
-        renderCatalogo();
-        renderStockMovil();
-    }
-}
 
         function renderCatalogo() {
             const contenedor = document.getElementById('contenedor-catalogo');
