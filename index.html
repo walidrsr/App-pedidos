@@ -422,14 +422,16 @@
                     if (typeof renderVentasArbol === 'function') renderVentasArbol();
                 }
 
-                // 4. Cargar Deudores
+                // 4. Cargar Deudores (dentro de cargarDatosDesdeSupabase)
                 const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
                 if (!errDeu && deuData) {
                     listaDeudores = deuData.map(d => ({
                         id: d.id,
-                        cliente: d.cliente,
-                        monto: Number(d.monto || d.montoTotal || d.saldoPendiente || 0),
-                        concepto: d.concepto || 'Deuda'
+                        cliente: d.nombreCliente || d.cliente,
+                        nombreCliente: d.nombreCliente || d.cliente,
+                        montoDeuda: Number(d.montoDeuda || d.monto || 0),
+                        monto: Number(d.montoDeuda || d.monto || 0),
+                        concepto: d.concepto || 'Deuda de pedido'
                     }));
                 }
 
@@ -1141,19 +1143,26 @@
         function renderDeudores() {
             const contenedor = document.getElementById('contenedor-lista-deudores');
             if (!contenedor) return;
+
             if (listaDeudores.length === 0) {
                 contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay deudores registrados.</p>`;
                 return;
             }
-            contenedor.innerHTML = listaDeudores.map(d => `
-                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
-                    <div>
-                        <strong class="text-slate-900 text-sm block">${d.cliente}</strong>
-                        <span class="text-slate-500">${d.concepto || 'Deuda'} - <strong class="text-red-600 font-black">$${Number(d.monto).toLocaleString()}</strong></span>
+
+            contenedor.innerHTML = listaDeudores.map(d => {
+                // Obtenemos el monto correcto sin importar si viene de un pedido (montoDeuda) o de una deuda manual (monto)
+                const valorDeuda = Number(d.montoDeuda !== undefined ? d.montoDeuda : (d.monto || 0));
+
+                return `
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
+                        <div>
+                            <strong class="text-slate-900 text-sm block">${d.nombreCliente || d.cliente}</strong>
+                            <span class="text-slate-500">${d.concepto || 'Deuda de pedido'} - <strong class="text-red-600 font-black">$${valorDeuda.toLocaleString()}</strong></span>
+                        </div>
+                        <button onclick="eliminarDeudor(${d.id})" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1.5 rounded-lg hover:bg-emerald-200">Saldar</button>
                     </div>
-                    <button onclick="eliminarDeudor(${d.id})" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1.5 rounded-lg hover:bg-emerald-200">Saldar</button>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         async function agregarDeudor() {
