@@ -813,97 +813,102 @@
         }
 
         async function gestionarPedidoAccion(tipoAccion) {
-                const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
-                if (pedidoIndex === -1) return;
-                const pedido = listaPedidos[pedidoIndex];
+            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+            if (pedidoIndex === -1) return;
+            const pedido = listaPedidos[pedidoIndex];
+            
+            const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+            const totalPedido = Number(pedido.total || 0);
+            const montoAnteriorTotal = Number(pedido.montoPagado || 0);
+            const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
+            pedido.montoPagado = nuevoMontoPagadoTotal;
+            const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
+
+            // 1. Descontar stock si aún no se había hecho
+            if (!pedido.stockDescontado) {
+                for (const item of pedido.items) {
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                    if (prod) {
+                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                        // Actualizamos la columna 'cantidad' en la tabla stock de Supabase
+                        await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
+                    }
+                }
+                pedido.stockDescontado = true;
+            }
+
+            // 2. Si queda saldo pendiente, registrar o actualizar en la tabla 'deudores'
+            if (saldoPendienteRestante > 0) {
+                const { data: deudorExistenteArr, error: errBusqueda } = await db.from('deudores').select('*').ilike('cliente', pedido.cliente);
                 
-                const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
-                const totalPedido = Number(pedido.total || 0);
-                const montoAnteriorTotal = Number(pedido.montoPagado || 0);
-                const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
-                pedido.montoPagado = nuevoMontoPagadoTotal;
-                const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
-
-                // 1. Descontar stock si aún no se había hecho
-                if (!pedido.stockDescontado) {
-                    for (const item of pedido.items) {
-                        const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                        if (prod) {
-                            prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                            // Actualizamos la columna 'cantidad' en la tabla stock de Supabase
-                            await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
-                        }
-                    }
-                    pedido.stockDescontado = true;
-                }
-
-                // 2. Si queda saldo pendiente, registrar o actualizar en la tabla 'deudores'
-                if (saldoPendienteRestante > 0) {
-                    const { data: deudorExistenteArr, error: errBusqueda } = await db.from('deudores').select('*').ilike('cliente', pedido.cliente);
+                if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
+                    const deudorDb = deudorExistenteArr[0];
+                    const montoActualBd = Number(deudorDb.montoTotal !== undefined ? deudorDb.montoTotal : deudorDb.monto) || 0;
+                    const nuevoMontoTotalDeuda = montoActualBd + saldoPendienteRestante;
                     
-                    if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
-                        const deudorDb = deudorExistenteArr[0];
-                        const montoActualBd = Number(deudorDb.montoTotal !== undefined ? deudorDb.montoTotal : deudorDb.monto) || 0;
-                        const nuevoMontoTotalDeuda = montoActualBd + saldoPendienteRestante;
-                        
-                        await db.from('deudores').update({
-                            montoTotal: nuevoMontoTotalDeuda,
-                            concepto: `Deuda pendiente de pedido #${pedido.id}`
-                        }).eq('id', Number(deudorDb.id));
-                    } else {
-                        const nuevoDeudor = {
-                            id: Number(pedido.id),
-                            cliente: pedido.cliente,
-                            montoTotal: saldoPendienteRestante,
-                            concepto: `Saldo pendiente pedido #${pedido.id}`,
-                            fecha: new Date().toLocaleDateString()
-                        };
-                        await db.from('deudores').insert([nuevoDeudor]);
-                    }
-                }
-
-                // ⭐ 3. Si ya pagó el total (saldoPendienteRestante === 0), va a la tabla 'ventas'
-                if (saldoPendienteRestante === 0) {
-                    
-                    // A. 👤 Aseguramos que el cliente SE QUEDE en la tabla 'clientes' (lo insertamos si no estaba, pero NUNCA se borra)
-                    const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
-                    const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
-                    if (!clienteCheck || clienteCheck.length === 0) {
-                        await db.from('clientes').insert([{
-                            nombre: nombreClienteLimpio,
-                            telefono: 'Sin teléfono'
-                        }]);
-                    }
-
-                    // B. 💰 Registramos la venta en la tabla 'ventas'
-                    const datosVentaSupabase = {
+                    await db.from('deudores').update({
+                        montoTotal: nuevoMontoTotalDeuda,
+                        concepto: `Deuda pendiente de pedido #${pedido.id}`
+                    }).eq('id', Number(deudorDb.id));
+                } else {
+                    const nuevoDeudor = {
                         id: Number(pedido.id),
-                    
-                        total: Number(totalPedido),
-                        metodo_pago: 'Pagado 100%',
-                        detalles_venta: {
-                            cliente: nombreClienteLimpio,
-                            items: pedido.items || [],
-                            horaRegistro: pedido.horaRegistro || ''
-                        }
+                        cliente: pedido.cliente,
+                        montoTotal: saldoPendienteRestante,
+                        concepto: `Saldo pendiente pedido #${pedido.id}`,
+                        fecha: new Date().toLocaleDateString()
                     };
-
-                    const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
-                    if (errVenta) {
-                        console.error("❌ Error al insertar en ventas:", errVenta.message);
-                        alert("Error al guardar la venta: " + errVenta.message);
-                        return;
-                    }
-
-                    // C. 🗑️ Borramos UNICAMENTE el pedido de la tabla 'pedidos' (el cliente en la tabla 'clientes' y la venta en 'ventas' se quedan a salvo)
-                    const { error: errDel } = await db.from('pedidos').delete().eq('id', Number(pedido.id));
-                    if (errDel) {
-                        console.error("Error al borrar el pedido completado:", errDel.message);
-                    }
-
-                    alert(`🎉 ¡Pago total! Venta #${pedido.id} guardada y cliente asegurado.`);
+                    await db.from('deudores').insert([nuevoDeudor]);
                 }
             }
+
+            // ⭐ 3. Si ya pagó el total (saldoPendienteRestante === 0), va a la tabla 'ventas'
+            if (saldoPendienteRestante === 0) {
+                
+                // A. 👤 Aseguramos que el cliente SE QUEDE en la tabla 'clientes'
+                const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
+                const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
+                if (!clienteCheck || clienteCheck.length === 0) {
+                    await db.from('clientes').insert([{
+                        nombre: nombreClienteLimpio,
+                        telefono: 'Sin teléfono'
+                    }]);
+                }
+
+                // B. 💰 Registramos la venta ajustada a las columnas exactas de tu tabla 'ventas'
+                const datosVentaSupabase = {
+                    id: Number(pedido.id),
+                    total: Number(totalPedido),
+                    metodo_pago: 'Pagado 100%',
+                    detalles_venta: {
+                        cliente: nombreClienteLimpio, // 👈 El cliente va protegido aquí dentro sin romper el esquema
+                        items: pedido.items || [],
+                        horaRegistro: pedido.horaRegistro || ''
+                    }
+                };
+
+                const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
+                if (errVenta) {
+                    console.error("❌ Error al insertar en ventas:", errVenta.message);
+                    alert("Error al guardar la venta: " + errVenta.message);
+                    return;
+                }
+
+                // C. 🗑️ Borramos UNICAMENTE el pedido de la tabla 'pedidos'
+                const { error: errDel } = await db.from('pedidos').delete().eq('id', Number(pedido.id));
+                if (errDel) {
+                    console.error("Error al borrar el pedido completado:", errDel.message);
+                }
+
+                alert(`🎉 ¡Pago total! Venta #${pedido.id} guardada y cliente asegurado.`);
+            }
+
+            // Recargar datos y actualizar vista en la app
+            await cargarDatosDesdeSupabase();
+            if (typeof actualizarTodo === 'function') {
+                actualizarTodo();
+            }
+        }
                         
 
         function abrirModalAgregarProductos(id) {
