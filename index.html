@@ -753,41 +753,24 @@
         // 1. ACTUALIZAR PRECIO Y GUARDAR DIRECTO EN SUPABASE
       async function actualizarPrecioDesdeCatalogo(productoId, nuevoPrecio) {
             const precioNum = parseFloat(nuevoPrecio);
-            const idLimpio = Number(productoId);
-            const prod = catalogoProductos.find(p => Number(p.id) === idLimpio);
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
             
             if (prod && !isNaN(precioNum)) {
-                // 1. Actualizamos localmente
                 prod.precio = precioNum;
-
-                // 2. ⭐ Intentamos actualizar la fila individual
-                let { error } = await db
-                    .from(STORE_STOCK)
+                
+                // 1. Guardar el cambio en la nube (Supabase) para todos los dispositivos
+                const { error } = await db
+                    .from('stock')
                     .update({ precio: precioNum })
-                    .eq('id', idLimpio);
-
-                // 3. Plan B: Si por estructura de tabla el update directo no pegó, usamos upsert seguro de la fila
+                    .eq('id', Number(productoId));
+                    
                 if (error) {
-                    console.warn("Intento de update falló, probando upsert...", error.message);
-                    const resUpsert = await db
-                        .from(STORE_STOCK)
-                        .upsert({ 
-                            id: idLimpio, 
-                            nombre: prod.nombre, 
-                            emoji: prod.emoji || '', 
-                            precio: precioNum, 
-                            stockActual: Number(prod.stockActual || 0) 
-                        }, { onConflict: 'id' });
-                    error = resUpsert.error;
-                }
-
-                if (error) {
-                    console.error("❌ Error definitivo al guardar precio en Supabase:", error.message);
+                    console.error("Error al actualizar el precio en Supabase:", error.message);
                     alert("No se pudo guardar el precio en la nube: " + error.message);
-                } else {
-                    console.log(`✅ Precio del producto #${idLimpio} guardado correctamente en la nube: $${precioNum}`);
+                    return;
                 }
-
+                
+                // 2. Refrescar la interfaz localmente
                 renderStockMovil();
                 renderCatalogo();
             }
