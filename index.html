@@ -327,19 +327,18 @@
         }
 
         async function sincronizarProductoEnSupabase(prod) {
-            try {
-                const { error } = await db.from(STORE_STOCK).upsert({
-                    id: Number(prod.id),
-                    nombre: String(prod.nombre),
-                    emoji: String(prod.emoji),
-                    stockActual: Number(prod.stockActual),
-                    precio: Number(prod.precio)
-                }, { onConflict: 'id' });
-                if (error) console.error(`Error al guardar producto ${prod.id}:`, error.message);
-            } catch (err) {
-                console.error("Error de red al guardar en stock:", err);
-            }
-        }
+    try {
+        const { error } = await db.from('stock').upsert({
+            id: Number(prod.id),
+            nombre: String(prod.nombre),
+            stockActual: Number(prod.stockActual),
+            precio: Number(prod.precio)
+        }, { onConflict: 'id' });
+        if (error) console.error(`Error al guardar producto ${prod.id}:`, error.message);
+    } catch (err) {
+        console.error("Error de red al guardar en stock:", err);
+    }
+}
 
         // ⭐ CORRECCIÓN 1: CARGA INICIAL ROBUSTA Y AUTO-POBLADO DE STOCK
         async function cargarDatosDesdeSupabase() {
@@ -419,27 +418,32 @@
 
         // ⭐ CORRECCIÓN 2: GUARDAR PRECIO INDIVIDUAL DE FORMA PERMANENTE
         async function guardarPrecioProducto(productoId) {
-            const input = document.getElementById(`input-precio-${productoId}`);
-            if (!input) return;
-            const nuevoPrecio = parseFloat(input.value);
-            const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
-            
-            if (prod && !isNaN(nuevoPrecio)) {
-                prod.precio = nuevoPrecio;
-                const { error } = await db
-                    .from('stock')
-                    .update({ precio: nuevoPrecio })
-                    .eq('id', Number(productoId));
+    const input = document.getElementById(`input-precio-${productoId}`);
+    if (!input) return;
+    const nuevoPrecio = parseFloat(input.value);
+    const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
+    
+    if (prod && !isNaN(nuevoPrecio)) {
+        prod.precio = nuevoPrecio;
+        
+        // ⭐ Actualizamos solo id, precio y stockActual (sin emoji)
+        const { error } = await db
+            .from('stock')
+            .update({ precio: nuevoPrecio })
+            .eq('id', Number(productoId));
 
-                if (error) {
-                    console.error("Error al actualizar:", error.message);
-                    alert("No se pudo guardar el precio.");
-                } else {
-                    alert(`💰 Precio actualizado a $${nuevoPrecio} en Supabase.`);
-                }
-                renderCatalogo();
-            }
+        if (error) {
+            console.error("Error al actualizar precio en Supabase:", error.message);
+            alert("No se pudo guardar el precio: " + error.message);
+        } else {
+            console.log(`💰 Precio actualizado a $${nuevoPrecio} para el producto #${productoId}`);
+            alert(`✅ Precio guardado correctamente en la nube.`);
         }
+        
+        renderCatalogo();
+        renderStockMovil();
+    }
+}
 
         function renderCatalogo() {
             const contenedor = document.getElementById('contenedor-catalogo');
