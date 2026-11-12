@@ -362,9 +362,10 @@
 
         async function guardarEnSupabase(nombreTabla, objetoDatos) {
             try {
-                const { data, error } = await db
+                // Si es un arreglo (como stock, deudores o ventas), usamos upsert con clave primaria o ID
+                const { error } = await db
                     .from(nombreTabla)
-                    .upsert(objetoDatos); // upsert inserta si es nuevo o actualiza si ya existe el ID
+                    .upsert(objetoDatos, { onConflict: 'id' });
 
                 if (error) {
                     console.error(`Error al guardar en ${nombreTabla}:`, error.message);
@@ -803,7 +804,7 @@
             if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
             if (!fechaEntrega) return alert("Selecciona la fecha.");
 
-            // Validación de stock
+            // Validación estricta de stock
             for (let item of carritoActual) {
                 const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
                 if (prod && Number(item.cantidad) > Number(prod.stockActual)) {
@@ -834,6 +835,7 @@
             };
 
             if (pedidoEnEdicionId !== null) {
+                // --- ACTUALIZAR PEDIDO EXISTENTE ---
                 const { error } = await db
                     .from(STORE_NAME)
                     .update({
@@ -844,12 +846,14 @@
                     .eq('id', Number(pedidoEnEdicionId));
 
                 if (error) {
-                    console.error("Error al actualizar en Supabase:", error);
+                    console.error("Error al actualizar en Supabase:", error.message);
                     alert("Error al actualizar: " + error.message);
                     return;
                 }
                 pedidoEnEdicionId = null;
             } else {
+                // --- INSERTAR NUEVO PEDIDO ---
+                // Nota: Omitimos el 'id' para que Supabase lo autogenere automáticamente en la columna int4
                 const { data, error } = await db
                     .from(STORE_NAME)
                     .insert([
@@ -863,14 +867,14 @@
                     .select();
 
                 if (error) {
-                    console.error("Error al insertar en Supabase:", error);
+                    console.error("Error al insertar en Supabase:", error.message);
                     alert("Error al guardar en Supabase: " + error.message);
                     return;
                 }
                 console.log("Guardado exitoso:", data);
             }
 
-            // Descontar stock
+            // Descontar stock localmente y actualizar Supabase
             for (let item of itemsConPrecio) {
                 const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
                 if (prod) {
