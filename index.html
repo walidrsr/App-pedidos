@@ -298,6 +298,24 @@
     const STORE_VENTAS = "ventas";    
     const { createClient } = supabase;
     const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    db.channel('public:base_completa')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
+            console.log("🔔 Cambio en pedidos detectado. Recargando...");
+            cargarDatosDesdeSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => {
+            console.log("🔔 Cambio en ventas detectado. Recargando...");
+            cargarDatosDesdeSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, () => {
+            console.log("🔔 Cambio en deudores detectado. Recargando...");
+            cargarDatosDesdeSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock' }, () => {
+            console.log("🔔 Cambio en stock detectado. Recargando...");
+            cargarDatosDesdeSupabase();
+        })
+    .subscribe();
     async function sincronizarCambiosEnVivo() {
     // Aquí llamas a las funciones que ya tengas en tu app para refrescar la pantalla, por ejemplo:
             if (typeof cargarPedidos === 'function') {
@@ -379,16 +397,16 @@
 
         async function cargarDatosDesdeSupabase() {
             try {
-                // 1. Cargar productos (Stock)
+                // 1. CARGAR STOCK / CATÁLOGO
                 const { data: prodData, error: errProd } = await db.from('stock').select('*');
-                if (!errProd && prodData && prodData.length > 0) {
+                if (!errProd && prodData) {
                     catalogoProductos = prodData;
                 }
                 renderCatalogo();
                 renderStockMovil();
                 renderSelectProveedores();
 
-                // 2. Cargar pedidos y mapear correctamente los campos de Supabase
+                // 2. CARGAR PEDIDOS
                 const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
                 if (!errPed && pedData) {
                     listaPedidos = pedData.map(p => ({
@@ -396,36 +414,48 @@
                         cliente: p.cliente,
                         total: p.total,
                         estado: p.estado,
-                        // Extraemos la información interna que guardamos dentro del campo JSONB 'detalles'
                         fechaEntrega: p.detalles?.fechaEntrega || '',
                         notas: p.detalles?.notas || '',
                         items: p.detalles?.items || [],
                         horaRegistro: p.detalles?.horaRegistro || ''
                     }));
+                }
 
-                    if (listaPedidos.length > 0) {
-                        contadorId = Math.max(...listaPedidos.map(p => p.id), 100) + 1;
+                // 3. CARGAR VENTAS (Mapeando la columna 'detalles_venta')
+                const { data: ventData, error: errVent } = await db.from('ventas').select('*');
+                if (!errVent && ventData) {
+                    listaVentas = ventData.map(v => ({
+                        id: v.id,
+                        cliente: v.cliente,
+                        total: v.total,
+                        metodo_pago: v.metodo_pago,
+                        fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
+                        items: v.detalles_venta?.items || [],
+                        horaRegistro: v.detalles_venta?.horaRegistro || ''
+                    }));
+                    if (typeof renderVentasArbol === 'function') {
+                        renderVentasArbol();
                     }
                 }
-                actualizarTodo();
 
-                // 3. Cargar deudores
+                // 4. CARGAR DEUDORES
                 const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
                 if (!errDeu && deuData) {
                     listaDeudores = deuData;
-                    renderDeudores();
+                    if (typeof renderDeudores === 'function') {
+                        renderDeudores();
+                    }
                 }
 
-                // 4. Cargar ventas
-                const { data: ventData, error: errVent } = await db.from('ventas').select('*');
-                if (!errVent && ventData) {
-                    listaVentas = ventData;
-                    renderVentasArbol();
-                }
+                // Refrescar toda la interfaz visual
+                actualizarTodo();
+                console.log("✅ Todos los datos sincronizados desde Supabase con éxito.");
+
             } catch (err) {
-                console.error("Error al cargar datos desde Supabase:", err);
+                console.error("Error general al cargar datos de Supabase:", err);
             }
         }
+      
         ///////////////////////////////////////////////////////
 
 
