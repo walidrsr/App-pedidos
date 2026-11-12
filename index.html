@@ -752,81 +752,97 @@
 
         // 1. ACTUALIZAR PRECIO Y GUARDAR DIRECTO EN SUPABASE
       async function actualizarPrecioDesdeCatalogo(productoId, nuevoPrecio) {
-        const precioNum = parseFloat(nuevoPrecio);
-        const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
-        
-        if (prod && !isNaN(precioNum)) {
-            // 1. Actualizamos el valor en la memoria local
-            prod.precio = precioNum;
+            const precioNum = parseFloat(nuevoPrecio);
+            const idLimpio = Number(productoId);
+            const prod = catalogoProductos.find(p => Number(p.id) === idLimpio);
+            
+            if (prod && !isNaN(precioNum)) {
+                // 1. Actualizamos localmente
+                prod.precio = precioNum;
 
-            // 2. ⭐ Actualizamos directamente y de forma individual la fila en Supabase
-            const { error } = await db
-                .from(STORE_STOCK)
-                .update({ precio: precioNum })
-                .eq('id', Number(productoId));
-
-            if (error) {
-                console.error("Error al actualizar precio en Supabase:", error.message);
-                alert("No se pudo guardar el precio en la nube: " + error.message);
-            } else {
-                console.log(`💰 Precio del producto #${productoId} actualizado a $${precioNum} en Supabase.`);
-            }
-
-            renderStockMovil();
-            renderCatalogo();
-        }
-}
-
-// 2. AJUSTAR STOCK (Suma o resta y actualiza fila por fila en la nube)
-        async function ajustarStock(id, cambio) {
-            const prod = catalogoProductos.find(p => Number(p.id) === Number(id));
-            if (prod) {
-                prod.stockActual = Math.max(0, prod.stockActual + cambio);
-                
-                // ⭐ Actualizamos la fila individual en la tabla 'stock'
-                const { error } = await db
+                // 2. ⭐ Intentamos actualizar la fila individual
+                let { error } = await db
                     .from(STORE_STOCK)
-                    .update({ stockActual: Number(prod.stockActual), cantidad: Number(prod.stockActual) })
-                    .eq('id', Number(id));
+                    .update({ precio: precioNum })
+                    .eq('id', idLimpio);
+
+                // 3. Plan B: Si por estructura de tabla el update directo no pegó, usamos upsert seguro de la fila
+                if (error) {
+                    console.warn("Intento de update falló, probando upsert...", error.message);
+                    const resUpsert = await db
+                        .from(STORE_STOCK)
+                        .upsert({ 
+                            id: idLimpio, 
+                            nombre: prod.nombre, 
+                            emoji: prod.emoji || '', 
+                            precio: precioNum, 
+                            stockActual: Number(prod.stockActual || 0) 
+                        }, { onConflict: 'id' });
+                    error = resUpsert.error;
+                }
 
                 if (error) {
-                    console.error("Error al actualizar stock en Supabase:", error.message);
+                    console.error("❌ Error definitivo al guardar precio en Supabase:", error.message);
+                    alert("No se pudo guardar el precio en la nube: " + error.message);
+                } else {
+                    console.log(`✅ Precio del producto #${idLimpio} guardado correctamente en la nube: $${precioNum}`);
                 }
+
                 renderStockMovil();
                 renderCatalogo();
             }
         }
 
-// 3. REGISTRAR PEDIDO A PROVEEDORES (Actualiza stock en la nube)
-async function registrarPedidoProveedor() {
-    const prodId = parseInt(document.getElementById('prov-producto-select').value);
-    const cantidad = parseInt(document.getElementById('prov-cantidad').value);
-    
-    if (isNaN(cantidad) || cantidad <= 0) return alert("Ingresa una cantidad válida a reabastecer.");
-    
-    const prod = catalogoProductos.find(p => Number(p.id) === prodId);
-    if (prod) {
-        prod.stockActual += cantidad;
-        
-        // Actualizamos el stock en la base de datos de Supabase fila por fila
-        const { error } = await db
-            .from(STORE_STOCK)
-            .update({ stockActual: Number(prod.stockActual), precio: Number(prod.precio) })
-            .eq('id', Number(prodId));
+        // 2. AJUSTAR STOCK (Suma o resta y actualiza fila por fila en la nube)
+                async function ajustarStock(id, cambio) {
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(id));
+                    if (prod) {
+                        prod.stockActual = Math.max(0, prod.stockActual + cambio);
+                        
+                        // ⭐ Actualizamos la fila individual en la tabla 'stock'
+                        const { error } = await db
+                            .from(STORE_STOCK)
+                            .update({ stockActual: Number(prod.stockActual), cantidad: Number(prod.stockActual) })
+                            .eq('id', Number(id));
 
-        if (error) {
-            await db
-                .from(STORE_STOCK)
-                .update({ cantidad: Number(prod.stockActual) })
-                .eq('id', Number(prodId));
+                        if (error) {
+                            console.error("Error al actualizar stock en Supabase:", error.message);
+                        }
+                        renderStockMovil();
+                        renderCatalogo();
+                    }
+                }
+
+        // 3. REGISTRAR PEDIDO A PROVEEDORES (Actualiza stock en la nube)
+        async function registrarPedidoProveedor() {
+            const prodId = parseInt(document.getElementById('prov-producto-select').value);
+            const cantidad = parseInt(document.getElementById('prov-cantidad').value);
+            
+            if (isNaN(cantidad) || cantidad <= 0) return alert("Ingresa una cantidad válida a reabastecer.");
+            
+            const prod = catalogoProductos.find(p => Number(p.id) === prodId);
+            if (prod) {
+                prod.stockActual += cantidad;
+                
+                // Actualizamos el stock en la base de datos de Supabase fila por fila
+                const { error } = await db
+                    .from(STORE_STOCK)
+                    .update({ stockActual: Number(prod.stockActual), precio: Number(prod.precio) })
+                    .eq('id', Number(prodId));
+
+                if (error) {
+                    await db
+                        .from(STORE_STOCK)
+                        .update({ cantidad: Number(prod.stockActual) })
+                        .eq('id', Number(prodId));
+                }
+
+                document.getElementById('prov-cantidad').value = '';
+                document.getElementById('prov-nombre').value = '';
+                actualizarTodo();
+                alert(`¡Stock actualizado y guardado en la nube! Se sumaron ${cantidad} unidades de ${prod.nombre}.`);
+            }
         }
-
-        document.getElementById('prov-cantidad').value = '';
-        document.getElementById('prov-nombre').value = '';
-        actualizarTodo();
-        alert(`¡Stock actualizado y guardado en la nube! Se sumaron ${cantidad} unidades de ${prod.nombre}.`);
-    }
-}
 
 // 4. FUNCIÓN ROBUSTA DE CARGA INICIAL (Para que siempre traiga todo fresco al abrir)
         async function cargarDatosDesdeSupabase() {
