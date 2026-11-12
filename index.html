@@ -1042,9 +1042,10 @@
                 contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
                 return;
             }
-            contenedor.innerHTML = listaPedidos.map(p => {
-                const montoPagado = Number(p.montoPagado || 0);
-                const saldoAdeudado = Number(p.total) - montoPagado;
+                contenedor.innerHTML = listaPedidos.map(p => {
+                const montoPagado = Number(p.montoPagado || 0); // Si guardaste 50, aquí leerá 50
+                const saldoAdeudado = Number(p.total) - montoPagado; // 110 - 50 = 60
+
                 return `
                     <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
                         <div>
@@ -1056,11 +1057,7 @@
                                 ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
                             </div>
                         </div>
-                        <div class="flex flex-col gap-1">
-                            <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
-                            <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
-                            <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
-                        </div>
+                        <!-- Botones de acción -->
                     </div>
                 `;
             }).join('');
