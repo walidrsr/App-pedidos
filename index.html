@@ -379,8 +379,8 @@
 
         async function cargarDatosDesdeSupabase() {
             try {
-                // Cargar productos
-                const { data: prodData, error: errProd } = await db.from('productos').select('*');
+                // 1. Cargar productos (Stock)
+                const { data: prodData, error: errProd } = await db.from('stock').select('*');
                 if (!errProd && prodData && prodData.length > 0) {
                     catalogoProductos = prodData;
                 }
@@ -388,30 +388,40 @@
                 renderStockMovil();
                 renderSelectProveedores();
 
-                // Cargar pedidos
+                // 2. Cargar pedidos y mapear correctamente los campos de Supabase
                 const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
                 if (!errPed && pedData) {
-                    listaPedidos = pedData;
+                    listaPedidos = pedData.map(p => ({
+                        id: p.id,
+                        cliente: p.cliente,
+                        total: p.total,
+                        estado: p.estado,
+                        // Extraemos la información interna que guardamos dentro del campo JSONB 'detalles'
+                        fechaEntrega: p.detalles?.fechaEntrega || '',
+                        notas: p.detalles?.notas || '',
+                        items: p.detalles?.items || [],
+                        horaRegistro: p.detalles?.horaRegistro || ''
+                    }));
+
                     if (listaPedidos.length > 0) {
                         contadorId = Math.max(...listaPedidos.map(p => p.id), 100) + 1;
                     }
                 }
                 actualizarTodo();
 
-                // Cargar deudores
+                // 3. Cargar deudores
                 const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
                 if (!errDeu && deuData) {
                     listaDeudores = deuData;
                     renderDeudores();
                 }
 
-                // Cargar ventas
+                // 4. Cargar ventas
                 const { data: ventData, error: errVent } = await db.from('ventas').select('*');
                 if (!errVent && ventData) {
                     listaVentas = ventData;
                     renderVentasArbol();
                 }
-
             } catch (err) {
                 console.error("Error al cargar datos desde Supabase:", err);
             }
