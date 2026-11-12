@@ -299,22 +299,10 @@
     const { createClient } = supabase;
     const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     db.channel('public:base_completa')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
-            console.log("🔔 Cambio en pedidos detectado. Recargando...");
-            cargarDatosDesdeSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => {
-            console.log("🔔 Cambio en ventas detectado. Recargando...");
-            cargarDatosDesdeSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, () => {
-            console.log("🔔 Cambio en deudores detectado. Recargando...");
-            cargarDatosDesdeSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock' }, () => {
-            console.log("🔔 Cambio en stock detectado. Recargando...");
-            cargarDatosDesdeSupabase();
-        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => { cargarDatosDesdeSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => { cargarDatosDesdeSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, () => { cargarDatosDesdeSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock' }, () => { cargarDatosDesdeSupabase(); })
     .subscribe();
     async function sincronizarCambiosEnVivo() {
     // Aquí llamas a las funciones que ya tengas en tu app para refrescar la pantalla, por ejemplo:
@@ -380,72 +368,82 @@
 
         async function guardarEnSupabase(nombreTabla, objetoDatos) {
             try {
-                // Si es un arreglo (como stock, deudores o ventas), usamos upsert con clave primaria o ID
-                const { error } = await db
-                    .from(nombreTabla)
-                    .upsert(objetoDatos, { onConflict: 'id' });
-
-                if (error) {
-                    console.error(`Error al guardar en ${nombreTabla}:`, error.message);
+                if (Array.isArray(objetoDatos)) {
+                    // Si es un arreglo, hacemos upsert asegurando el id
+                    for (let item of objetoDatos) {
+                        await db.from(nombreTabla).upsert(item, { onConflict: 'id' });
+                    }
                 } else {
-                    console.log(`¡Datos guardados con éxito en ${nombreTabla}!`);
+                    await db.from(nombreTabla).upsert(objetoDatos, { onConflict: 'id' });
                 }
+                console.log(`¡Datos guardados con éxito en ${nombreTabla}!`);
             } catch (err) {
-                console.error("Error de red al guardar:", err);
+                console.error("Error al guardar en Supabase:", err);
             }
-        }
+        }   
 
         async function cargarDatosDesdeSupabase() {
             try {
-                // 1. CARGAR STOCK / CATÁLOGO (Independiente para que nunca falle)
+                // 1. Cargar Stock
                 const { data: prodData, error: errProd } = await db.from('stock').select('*');
                 if (!errProd && prodData && prodData.length > 0) {
-                    catalogoProductos = prodData;
+                    catalogoProductos = catalogoProductos.map(catItem => {
+                        const found = prodData.find(p => Number(p.id) === Number(catItem.id));
+                        return found ? { 
+                            ...catItem, 
+                            precio: Number(found.precio ?? catItem.precio), 
+                            stockActual: Number(found.stockActual ?? found.cantidad ?? catItem.stockActual) 
+                        } : catItem;
+                    });
                 }
-                renderCatalogo();
-                renderStockMovil();
-                renderSelectProveedores();
 
-                // 2. CARGAR PEDIDOS
+                // 2. Cargar Pedidos
                 const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
                 if (!errPed && pedData) {
                     listaPedidos = pedData.map(p => ({
                         id: p.id,
-                        cliente: p.cliente || 'Sin nombre',
-                        total: typeof p.total === 'number' ? p.total : Number(p.total || 0),
+                        cliente: p.cliente,
+                        total: Number(p.total || 0),
                         estado: p.estado || 'pendiente',
+                        montoPagado: Number(p.montoPagado || 0),
+                        stockDescontado: p.stockDescontado || false,
                         fechaEntrega: p.detalles?.fechaEntrega || '',
                         notas: p.detalles?.notas || '',
                         items: p.detalles?.items || [],
                         horaRegistro: p.detalles?.horaRegistro || ''
                     }));
-                    if (typeof renderListadoGeneral === 'function') renderListadoGeneral();
                 }
 
-                // 3. CARGAR VENTAS
+                // 3. Cargar Ventas
                 const { data: ventData, error: errVent } = await db.from('ventas').select('*');
                 if (!errVent && ventData) {
                     listaVentas = ventData.map(v => ({
                         id: v.id,
                         cliente: v.cliente,
-                        total: v.total,
+                        total: Number(v.total || 0),
                         metodo_pago: v.metodo_pago,
                         fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
+                        fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
                         items: v.detalles_venta?.items || [],
                         horaRegistro: v.detalles_venta?.horaRegistro || ''
                     }));
                     if (typeof renderVentasArbol === 'function') renderVentasArbol();
                 }
 
-                // 4. CARGAR DEUDORES
+                // 4. Cargar Deudores
                 const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
                 if (!errDeu && deuData) {
-                    listaDeudores = deuData;
+                    listaDeudores = deuData.map(d => ({
+                        id: d.id,
+                        cliente: d.cliente,
+                        monto: Number(d.monto || d.montoTotal || d.saldoPendiente || 0),
+                        concepto: d.concepto || 'Deuda'
+                    }));
                     if (typeof renderDeudores === 'function') renderDeudores();
                 }
 
                 actualizarTodo();
-                console.log("✅ Datos cargados correctamente.");
+                console.log("✅ Datos sincronizados correctamente.");
             } catch (err) {
                 console.error("Error al cargar datos:", err);
             }
@@ -1639,15 +1637,5 @@ async function registrarPedidoProveedor() {
             }
         }
     </script>
-    <script>
-        window.addEventListener('DOMContentLoaded', () => {
-            const netlifyBadge = document.querySelector('iframe[src*="netlify"], a[href*="netlify.com"]');
-            if (netlifyBadge) {
-                const parentContainer = netlifyBadge.closest('iframe') || netlifyBadge;
-                parentContainer.remove();
-            }
-        });
-    </script>
-
 </body>
 </html>
