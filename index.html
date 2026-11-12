@@ -720,7 +720,6 @@
         horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    // 1. 💾 Guardar o actualizar el pedido de forma directa y prioritaria
     if (pedidoEnEdicionId !== null) {
         const { error } = await db.from(STORE_NAME)
             .update({
@@ -751,14 +750,9 @@
         }
     }
 
-    // 2. 👤 Guardar el cliente en su tabla por separado (sin bloquear el pedido si llega a fallar)
-    db.from('clientes').select('id').ilike('nombre', cliente).then(({ data }) => {
-        if (!data || data.length === 0) {
-            db.from('clientes').insert([{ nombre: cliente, telefono: 'Sin teléfono' }]).then();
-        }
-    }).catch(err => console.log("Aviso cliente:", err));
+    // ⭐ Registro opcional del cliente en segundo plano (no bloquea el botón ni altera tu lógica)
+    db.from('clientes').insert([{ nombre: String(cliente), telefono: 'Sin teléfono' }]).then().catch(() => {});
 
-    // 3. 🧹 Limpiar y refrescar vistas
     limpiarCarritoActual();
     await cargarDatosDesdeSupabase();
     switchMainTab('listado');
