@@ -820,12 +820,12 @@
     }
     const pedido = listaPedidos[pedidoIndex];
     
-    // 1. Obtener y validar el monto ingresado en el modal
+    // 1. Obtener y validar el monto ingresado
     const inputMontoEl = document.getElementById('modal-input-monto-pagado');
     const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
 
-    if (tipoAccion === 'solo-pago' && montoIngresado <= 0) {
-        alert("Por favor, ingresa un monto válido para registrar el pago.");
+    if (montoIngresado <= 0) {
+        alert("Por favor, ingresa un monto válido mayor a 0 para registrar el pago.");
         return;
     }
 
@@ -849,34 +849,9 @@
         pedido.stockDescontado = true;
     }
 
-    // 3. Si queda saldo pendiente, registrar o actualizar en la tabla 'deudores' (usando 'nombreCliente' y 'montoDeuda')
-    if (saldoPendienteRestante > 0) {
-        const { data: deudorExistenteArr, error: errBusqueda } = await db.from('deudores').select('*').ilike('nombreCliente', nombreClienteLimpio);
-        
-        if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
-            const deudorDb = deudorExistenteArr[0];
-            const montoActualBd = Number(deudorDb.montoDeuda) || 0;
-            const nuevoMontoTotalDeuda = montoActualBd + saldoPendienteRestante; // O asigna saldoPendienteRestante según tu lógica
-            
-            await db.from('deudores').update({
-                montoDeuda: nuevoMontoTotalDeuda
-            }).eq('id', Number(deudorDb.id));
-        } else {
-            const nuevoDeudor = {
-                id: Number(pedido.id),
-                nombreCliente: nombreClienteLimpio,
-                montoDeuda: saldoPendienteRestante
-            };
-            await db.from('deudores').insert([nuevoDeudor]);
-        }
-        
-        alert(`💵 Pago parcial de $${montoIngresado} registrado. Saldo pendiente guardado en deudores.`);
-    }
-
-    // 4. Si ya pagó el total (saldoPendienteRestante === 0), va a la tabla 'ventas' (usando 'nombreCliente')
+    // 3. CASO A: Pago Total (El saldo restante es 0)
     if (saldoPendienteRestante === 0) {
-        
-        // Aseguramos que el cliente esté en la tabla 'clientes'
+        // Asegurar cliente en tabla 'clientes'
         const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
         if (!clienteCheck || clienteCheck.length === 0) {
             await db.from('clientes').insert([{
@@ -885,47 +860,79 @@
             }]);
         }
 
-        // Estructura adaptada a las columnas reales de 'ventas' (id, detalles_venta, total, metodo_pago, nombreCliente)
+        // Registrar venta
         const datosVentaSupabase = {
             id: Number(pedido.id),
-            detalles_venta: {
-                items: pedido.items || [],
-                horaRegistro: pedido.horaRegistro || ''
-            },
             total: Number(totalPedido),
             metodo_pago: 'Pagado 100%',
             nombreCliente: nombreClienteLimpio,
+            detalles_venta: {
+                items: pedido.items || [],
+                horaRegistro: pedido.horaRegistro || ''
+            }
         };
 
         const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
         if (errVenta) {
-            console.error("❌ Error al insertar en ventas:", errVenta.message);
             alert("Error al guardar la venta: " + errVenta.message);
             return;
         }
 
-        // Borramos el pedido completado de la tabla 'pedidos'
-        const { error: errDel } = await db.from('pedidos').delete().eq('id', Number(pedido.id));
-        if (errDel) {
-            console.error("Error al borrar el pedido completado:", errDel.message);
-        }
+        // Borrar el pedido completado de la tabla 'pedidos'
+        await db.from('pedidos').delete().eq('id', Number(pedido.id));
+
+        // 🧹 LIMPIEZA CLAVE: Como ya pagó el total, LO BORRAMOS de 'deudores' si es que estaba allí
+        await db.from('deudores').delete().ilike('nombreCliente', nombreClienteLimpio);
 
         alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada con éxito.`);
-    } else {
-        // Si fue un pago parcial, actualizamos el abono en la tabla 'pedidos'
+    } 
+    // 4. CASO B: Pago Parcial (Queda saldo pendiente)
+    else {
+        // Actualizar el monto pagado en la tabla 'pedidos'
         await db.from('pedidos')
             .update({ 
                 montoPagado: Number(pedido.montoPagado),
                 stockDescontado: true 
             })
             .eq('id', Number(pedido.id));
+
+        // Buscar si el cliente ya tiene un registro activo en la tabla 'deudores'
+        const { data: deudorExistenteArr, error: errBusqueda } = await db.from('deudores').select('*').ilike('nombreCliente', nombreClienteLimpio);
+        
+        if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
+            // Si ya existe en deudores, actualizamos su monto sumándole lo que ahora quedó debiendo
+            const deudorDb = deudorExistenteArr[0];
+            const deudaActualBd = Number(deudorDb.montoDeuda) || 0;
+            const nuevaDeudaTotal = deudaActualBd + saldoPendienteRestante;
+
+            await db.from('deudores').update({
+                montoDeuda: nuevaDeudaTotal
+            }).eq('id', Number(deudorDb.id));
+        } else {
+            // 💡 SI NO ESTABA EN DEUDORES (porque antes había saldado todo), SE LO CREA NUEVAMENTE AQUÍ
+            const nuevoDeudor = {
+                id: Number(pedido.id),
+                nombreCliente: nombreClienteLimpio,
+                montoDeuda: saldoPendienteRestante
+            };
+
+            const { error: errInsDeudor } = await db.from('deudores').insert([nuevoDeudor]);
+            if (errInsDeudor) {
+                console.error("Error al registrar deudor:", errInsDeudor.message);
+                alert("Error al registrar deudor: " + errInsDeudor.message);
+                return;
+            }
+        }
+
+        alert(`💵 Pago parcial de $${montoIngresado} registrado. El cliente queda con saldo pendiente en deudores.`);
     }
 
-    // Limpiar modal y actualizar vistas
+    // Limpiar input y cerrar modal
     if (inputMontoEl) inputMontoEl.value = '';
     const modalGestion = document.getElementById('modal-gestionar-pedido');
     if (modalGestion) modalGestion.classList.add('hidden');
 
+    // Recargar datos en la app
     await cargarDatosDesdeSupabase();
     if (typeof actualizarTodo === 'function') {
         actualizarTodo();
