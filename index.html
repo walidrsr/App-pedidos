@@ -878,10 +878,11 @@
                     // B. 💰 Registramos la venta en la tabla 'ventas'
                     const datosVentaSupabase = {
                         id: Number(pedido.id),
-                        cliente: nombreClienteLimpio,
+                    
                         total: Number(totalPedido),
                         metodo_pago: 'Pagado 100%',
                         detalles_venta: {
+                            cliente: nombreClienteLimpio,
                             items: pedido.items || [],
                             horaRegistro: pedido.horaRegistro || ''
                         }
