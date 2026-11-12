@@ -824,47 +824,48 @@
                     }
                 }
 
-                // ⭐ 3. Lógica unificada: Si ya pagó el total (saldoPendienteRestante === 0), va a la tabla 'ventas' automáticamente
-        if (saldoPendienteRestante === 0) {
-            const datosVentaSupabase = {
-                id: Number(pedido.id), // Conserva el mismo ID del pedido
-                cliente: pedido.cliente,
-                detalles_venta: { items: pedido.items, horaRegistro: pedido.horaRegistro || '' },
-                total: Number(totalPedido),
-                metodo_pago: 'Pagado 100%'
-            };
+                // ⭐ 3. Si ya pagó el total (saldoPendienteRestante === 0), va a la tabla 'ventas'
+                if (saldoPendienteRestante === 0) {
+                    
+                    // A. 👤 Aseguramos que el cliente SE QUEDE en la tabla 'clientes' (lo insertamos si no estaba, pero NUNCA se borra)
+                    const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
+                    const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
+                    if (!clienteCheck || clienteCheck.length === 0) {
+                        await db.from('clientes').insert([{
+                            nombre: nombreClienteLimpio,
+                            telefono: 'Sin teléfono'
+                        }]);
+                    }
 
-            const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
-            if (errVenta) {
-                console.error("Error al guardar en ventas:", errVenta.message);
+                    // B. 💰 Registramos la venta en la tabla 'ventas'
+                    const datosVentaSupabase = {
+                        id: Number(pedido.id),
+                        cliente: nombreClienteLimpio,
+                        total: Number(totalPedido),
+                        metodo_pago: 'Pagado 100%',
+                        detalles_venta: {
+                            items: pedido.items || [],
+                            horaRegistro: pedido.horaRegistro || ''
+                        }
+                    };
+
+                    const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
+                    if (errVenta) {
+                        console.error("❌ Error al insertar en ventas:", errVenta.message);
+                        alert("Error al guardar la venta: " + errVenta.message);
+                        return;
+                    }
+
+                    // C. 🗑️ Borramos UNICAMENTE el pedido de la tabla 'pedidos' (el cliente en la tabla 'clientes' y la venta en 'ventas' se quedan a salvo)
+                    const { error: errDel } = await db.from('pedidos').delete().eq('id', Number(pedido.id));
+                    if (errDel) {
+                        console.error("Error al borrar el pedido completado:", errDel.message);
+                    }
+
+                    alert(`🎉 ¡Pago total! Venta #${pedido.id} guardada y cliente asegurado.`);
+                }
             }
-
-            // Como ya está pagado al 100%, eliminamos el pedido pendiente de la tabla 'pedidos'
-            await db.from('pedidos').delete().eq('id', Number(pedido.id));
-
-            alert(`🎉 ¡Pago total! Venta #${pedido.id} guardada.`);
-        } else {
-            const { error: errUpd } = await db.from('pedidos').update({ 
-                montoPagado: nuevoMontoPagadoTotal, 
-                stockDescontado: true 
-            }).eq('id', Number(pedido.id));
-
-            if (errUpd) {
-                alert("Error al actualizar pago: " + errUpd.message);
-                return;
-            }
-            alert(`💵 Pago parcial registrado. Quedan $${saldoPendienteRestante.toLocaleString()} pendientes.`);
-        }
-
-        cerrarModalCompletar();
-        await cargarDatosDesdeSupabase();
-        
-        // ⭐ Asegurarnos de refrescar la vista del historial de ventas de inmediato
-        if (typeof renderVentasArbol === 'function') {
-            renderVentasArbol();
-        }
-    }
-            
+                        
 
         function abrirModalAgregarProductos(id) {
             const pedido = listaPedidos.find(p => Number(p.id) === Number(id));
