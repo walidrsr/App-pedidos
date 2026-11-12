@@ -815,120 +815,103 @@
         }
 
         async function gestionarPedidoAccion(tipoAccion) {
-            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
-            if (pedidoIndex === -1) {
-                alert("No se encontró el pedido en proceso.");
-                return;
-            }
+    const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+    if (pedidoIndex === -1) {
+        alert("No se encontró el pedido en proceso.");
+        return;
+    }
 
-            const pedido = listaPedidos[pedidoIndex];
-            const inputMontoEl = document.getElementById('modal-input-monto-pagado');
-            const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
+    const pedido = listaPedidos[pedidoIndex];
+    const inputMontoEl = document.getElementById('modal-input-monto-pagado');
+    const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
 
-            if (montoIngresado <= 0) {
-                alert("Por favor, ingresa un monto válido mayor a 0 para registrar el pago.");
-                return;
-            }
+    if (montoIngresado <= 0) {
+        alert("Por favor, ingresa un monto válido mayor a 0.");
+        return;
+    }
 
-            const totalPedido = Number(pedido.total || 0);
-            const montoAnteriorTotal = Number(pedido.montoPagado || 0);
-            const saldoPendienteActual = Math.max(0, totalPedido - montoAnteriorTotal);
+    const totalPedido = Number(pedido.total || 0);
+    // ⭐ ACUMULAMOS CORRECTAMENTE EL MONTO PAGADO ANTERIOR + LO QUE PAGA HOY
+    const montoAnteriorTotal = Number(pedido.montoPagado || 0);
+    const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
+    const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
+    const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
 
-            // 💡 Aviso si el pago ingresado supera la deuda actual (sin restringirlo)
-            if (montoIngresado > saldoPendienteActual) {
-                alert(`⚠️ Aviso: El monto ingresado ($${montoIngresado.toLocaleString()}) supera el saldo pendiente actual ($${saldoPendienteActual.toLocaleString()}). Se registrará de todas formas.`);
-            }
+    // Validar si paga de más (aviso pero no restringe)
+    const saldoPendienteActual = Math.max(0, totalPedido - montoAnteriorTotal);
+    if (montoIngresado > saldoPendienteActual) {
+        alert(`⚠️ Aviso: El monto ingresado supera el saldo pendiente actual ($${saldoPendienteActual.toLocaleString()}). Se registrará de todas formas.`);
+    }
 
-            const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
-            const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
-            const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
+    // Actualizamos la variable local de inmediato
+    pedido.montoPagado = nuevoMontoPagadoTotal;
 
-            // Actualizar localmente de inmediato
-            pedido.montoPagado = nuevoMontoPagadoTotal;
-
-            // 2. Descontar stock si aún no se había hecho
-            if (!pedido.stockDescontado) {
-                for (const item of pedido.items) {
-                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                    if (prod) {
-                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                        await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
-                    }
-                }
-                pedido.stockDescontado = true;
-            }
-
-            // 3. CASO A: Pago Total (El saldo restante es 0)
-            if (saldoPendienteRestante === 0) {
-                const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
-                if (!clienteCheck || clienteCheck.length === 0) {
-                    await db.from('clientes').insert([{ nombre: nombreClienteLimpio, telefono: 'Sin teléfono' }]);
-                }
-
-                const datosVentaSupabase = {
-                    id: Number(pedido.id),
-                    total: Number(totalPedido),
-                    metodo_pago: 'Pagado 100%',
-                    nombreCliente: nombreClienteLimpio,
-                    detalles_venta: { items: pedido.items || [], horaRegistro: pedido.horaRegistro || '' }
-                };
-
-                const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
-                if (errVenta) {
-                    alert("Error al guardar la venta: " + errVenta.message);
-                    return;
-                }
-
-                await db.from('pedidos').delete().eq('id', Number(pedido.id));
-                await db.from('deudores').delete().ilike('nombreCliente', nombreClienteLimpio);
-                
-                listaPedidos.splice(pedidoIndex, 1);
-                alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada con éxito.`);
-            } 
-            // 4. CASO B: Pago Parcial (Queda saldo pendiente)
-            else {
-                // ⭐ AQUÍ ESTABA EL ERROR: Actualizamos explícitamente 'montoPagado' en la tabla 'pedidos' de Supabase
-                const { error: errPedidoUp } = await db.from('pedidos')
-                    .update({ 
-                        montoPagado: Number(nuevoMontoPagadoTotal), 
-                        stockDescontado: true 
-                    })
-                    .eq('id', Number(pedido.id));
-
-                if (errPedidoUp) {
-                    console.error("Error al actualizar monto pagado en pedido:", errPedidoUp.message);
-                }
-
-                // Gestionar tabla 'deudores'
-                const { data: deudorExistenteArr, error: errBusqueda } = await db.from('deudores').select('*').ilike('nombreCliente', nombreClienteLimpio);
-                
-                if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
-                    const deudorDb = deudorExistenteArr[0];
-                    await db.from('deudores')
-                        .update({ montoDeuda: saldoPendienteRestante })
-                        .eq('id', Number(deudorDb.id));
-                } else {
-                    const nuevoDeudor = {
-                        id: Number(pedido.id),
-                        nombreCliente: nombreClienteLimpio,
-                        montoDeuda: saldoPendienteRestante
-                    };
-                    await db.from('deudores').insert([nuevoDeudor]);
-                }
-                alert(`💵 Pago parcial registrado. El cliente queda debiendo $${saldoPendienteRestante.toLocaleString()}.`);
-            }
-
-            // Limpiar input y cerrar modal
-            if (inputMontoEl) inputMontoEl.value = '';
-            const modalGestion = document.getElementById('modal-completar');
-            if (modalGestion) modalGestion.classList.add('hidden');
-
-            // Sincronizar y forzar redibujado inmediato en la pantalla
-            await cargarDatosDesdeSupabase();
-            if (typeof actualizarTodo === 'function') {
-                actualizarTodo();
+    // Descontar stock si no se había hecho
+    if (!pedido.stockDescontado) {
+        for (const item of pedido.items) {
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+            if (prod) {
+                prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
             }
         }
+        pedido.stockDescontado = true;
+    }
+
+    if (saldoPendienteRestante === 0) {
+        // --- CASO PAGO TOTAL ---
+        const datosVentaSupabase = {
+            id: Number(pedido.id),
+            total: Number(totalPedido),
+            metodo_pago: 'Pagado 100%',
+            nombreCliente: nombreClienteLimpio,
+            detalles_venta: { items: pedido.items || [], horaRegistro: pedido.horaRegistro || '' }
+        };
+        await db.from('ventas').insert([datosVentaSupabase]);
+        await db.from('pedidos').delete().eq('id', Number(pedido.id));
+        await db.from('deudores').delete().ilike('nombreCliente', nombreClienteLimpio);
+        listaPedidos.splice(pedidoIndex, 1);
+        alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada.`);
+    } else {
+        // --- CASO PAGO PARCIAL ---
+        // ⭐ 1. GUARDAMOS EL ACUMULADO DE 'montoPagado' EN LA TABLA PEDIDOS DE SUPABASE
+        const { error: errPedidoUp } = await db.from('pedidos')
+            .update({ 
+                montoPagado: Number(nuevoMontoPagadoTotal), 
+                stockDescontado: true 
+            })
+            .eq('id', Number(pedido.id));
+
+        if (errPedidoUp) console.error("Error al actualizar montoPagado:", errPedidoUp.message);
+
+        // ⭐ 2. ACTUALIZAMOS LA TABLA DEUDORES CON EL SALDO RESTANTE EXACTO
+        const { data: deudorExistenteArr } = await db.from('deudores').select('*').ilike('nombreCliente', nombreClienteLimpio);
+        
+        if (deudorExistenteArr && deudorExistenteArr.length > 0) {
+            const deudorDb = deudorExistenteArr[0];
+            await db.from('deudores')
+                .update({ montoDeuda: saldoPendienteRestante })
+                .eq('id', Number(deudorDb.id));
+        } else {
+            await db.from('deudores').insert([{
+                id: Number(pedido.id),
+                nombreCliente: nombreClienteLimpio,
+                montoDeuda: saldoPendienteRestante
+            }]);
+        }
+        alert(`💵 Pago registrado. El cliente abonó $${montoIngresado.toLocaleString()}. Nuevo debe: $${saldoPendienteRestante.toLocaleString()}`);
+    }
+
+    if (inputMontoEl) inputMontoEl.value = '';
+    const modalGestion = document.getElementById('modal-completar');
+    if (modalGestion) modalGestion.classList.add('hidden');
+
+    // Sincronizar y refrescar pantalla al instante
+    await cargarDatosDesdeSupabase();
+    if (typeof actualizarTodo === 'function') {
+        actualizarTodo();
+    }
+}
                         
 
         function abrirModalAgregarProductos(id) {
@@ -1042,10 +1025,9 @@
                 contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
                 return;
             }
-                contenedor.innerHTML = listaPedidos.map(p => {
-                const montoPagado = Number(p.montoPagado || 0); // Si guardaste 50, aquí leerá 50
-                const saldoAdeudado = Number(p.total) - montoPagado; // 110 - 50 = 60
-
+            contenedor.innerHTML = listaPedidos.map(p => {
+                const montoPagado = Number(p.montoPagado || 0);
+                const saldoAdeudado = Number(p.total) - montoPagado;
                 return `
                     <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
                         <div>
@@ -1057,7 +1039,11 @@
                                 ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
                             </div>
                         </div>
-                        <!-- Botones de acción -->
+                        <div class="flex flex-col gap-1">
+                            <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
+                            <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
+                            <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
+                        </div>
                     </div>
                 `;
             }).join('');
