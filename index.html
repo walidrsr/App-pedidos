@@ -699,19 +699,6 @@
     if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
     if (!fechaEntrega) return alert("Selecciona la fecha de entrega.");
 
-    // ⭐ 1. Registrar o asegurar el cliente en la tabla 'clientes' de forma independiente
-    try {
-        const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', cliente);
-        if (!clienteCheck || clienteCheck.length === 0) {
-            await db.from('clientes').insert([{
-                nombre: cliente,
-                telefono: 'Sin teléfono'
-            }]);
-        }
-    } catch (e) {
-        console.warn("Aviso al registrar cliente:", e);
-    }
-
     let totalMonto = 0;
     const itemsConPrecio = carritoActual.map(item => {
         const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
@@ -733,6 +720,7 @@
         horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
+    // 1. 💾 Guardar o actualizar el pedido de forma directa y prioritaria
     if (pedidoEnEdicionId !== null) {
         const { error } = await db.from(STORE_NAME)
             .update({
@@ -763,6 +751,14 @@
         }
     }
 
+    // 2. 👤 Guardar el cliente en su tabla por separado (sin bloquear el pedido si llega a fallar)
+    db.from('clientes').select('id').ilike('nombre', cliente).then(({ data }) => {
+        if (!data || data.length === 0) {
+            db.from('clientes').insert([{ nombre: cliente, telefono: 'Sin teléfono' }]).then();
+        }
+    }).catch(err => console.log("Aviso cliente:", err));
+
+    // 3. 🧹 Limpiar y refrescar vistas
     limpiarCarritoActual();
     await cargarDatosDesdeSupabase();
     switchMainTab('listado');
