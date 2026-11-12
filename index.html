@@ -1035,6 +1035,41 @@
                     </div>
                 `;
             }).join('');
+        }  
+
+        
+        async function completarPedidoDirecto(id) {
+            if (!confirm("¿Estás seguro de que deseas eliminar este pedido permanentemente?")) {
+                return;
+            }
+
+            try {
+                // 1. 🗑️ Borrar el registro directamente de la tabla 'pedidos' en Supabase
+                const { error } = await db
+                    .from('pedidos')
+                    .delete()
+                    .eq('id', Number(id));
+
+                if (error) {
+                    console.error("Error al borrar en Supabase:", error.message);
+                    alert("No se pudo eliminar el pedido de la base de datos: " + error.message);
+                    return;
+                }
+
+                // 2. 🔄 Volver a cargar todos los datos actualizados desde Supabase para refrescar la app
+                await cargarDatosDesdeSupabase();
+
+                // 3. 🎨 Forzar la actualización visual del listado en pantalla
+                if (typeof actualizarTodo === 'function') {
+                    actualizarTodo();
+                }
+
+                alert("✅ Pedido eliminado correctamente de la base de datos y de la aplicación.");
+
+            } catch (err) {
+                console.error("Error de red al intentar borrar:", err);
+                alert("Ocurrió un error inesperado al intentar borrar el pedido.");
+            }
         }
 
         function actualizarSugerenciasClientes() {
