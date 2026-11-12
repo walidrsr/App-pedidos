@@ -691,70 +691,83 @@
         }
 
         async function guardarPedido() {
-            const cliente = document.getElementById('input-cliente').value.trim();
-            const fechaEntrega = document.getElementById('input-fecha-entrega').value;
-            const notas = document.getElementById('input-notas').value.trim();
+    const cliente = document.getElementById('input-cliente').value.trim();
+    const fechaEntrega = document.getElementById('input-fecha-entrega').value;
+    const notas = document.getElementById('input-notas').value.trim();
 
-            if (!cliente) return alert("Ingresa el nombre del cliente.");
-            if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
-            if (!fechaEntrega) return alert("Selecciona la fecha de entrega.");
+    if (!cliente) return alert("Ingresa el nombre del cliente.");
+    if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
+    if (!fechaEntrega) return alert("Selecciona la fecha de entrega.");
 
-            let totalMonto = 0;
-            const itemsConPrecio = carritoActual.map(item => {
-                const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
-                totalMonto += precio * Number(item.cantidad);
-                return { 
-                    productoId: Number(item.productoId),
-                    nombre: item.nombre,
-                    emoji: item.emoji || '',
-                    precioUnitario: Number(precio), 
-                    cantidad: Number(item.cantidad) 
-                };
-            });
-
-            const datosPedidoCompleto = {
-                fechaEntrega: String(fechaEntrega),
-                notas: String(notas || ""),
-                items: itemsConPrecio,
-                horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
-
-            if (pedidoEnEdicionId !== null) {
-                const { error } = await db.from(STORE_NAME)
-                    .update({
-                        cliente: String(cliente),
-                        detalles: datosPedidoCompleto,
-                        total: Number(totalMonto)
-                    })
-                    .eq('id', Number(pedidoEnEdicionId));
-
-                if (error) {
-                    alert("Error al actualizar: " + error.message);
-                    return;
-                }
-                pedidoEnEdicionId = null;
-            } else {
-                const { error } = await db.from(STORE_NAME).insert([{
-                    cliente: String(cliente),
-                    detalles: datosPedidoCompleto,
-                    total: Number(totalMonto),
-                    estado: 'pendiente',
-                    montoPagado: 0,
-                    stockDescontado: false
-                }]);
-
-                if (error) {
-                    alert("Error al guardar: " + error.message);
-                    return;
-                }
-            }
-
-            limpiarCarritoActual();
-            await cargarDatosDesdeSupabase();
-            switchMainTab('listado');
-            alert("¡Pedido guardado con éxito!");
+    // ⭐ 1. Registrar o asegurar el cliente en la tabla 'clientes' de forma independiente
+    try {
+        const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', cliente);
+        if (!clienteCheck || clienteCheck.length === 0) {
+            await db.from('clientes').insert([{
+                nombre: cliente,
+                telefono: 'Sin teléfono'
+            }]);
         }
+    } catch (e) {
+        console.warn("Aviso al registrar cliente:", e);
+    }
+
+    let totalMonto = 0;
+    const itemsConPrecio = carritoActual.map(item => {
+        const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+        const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
+        totalMonto += precio * Number(item.cantidad);
+        return { 
+            productoId: Number(item.productoId),
+            nombre: item.nombre,
+            emoji: item.emoji || '',
+            precioUnitario: Number(precio), 
+            cantidad: Number(item.cantidad) 
+        };
+    });
+
+    const datosPedidoCompleto = {
+        fechaEntrega: String(fechaEntrega),
+        notas: String(notas || ""),
+        items: itemsConPrecio,
+        horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    if (pedidoEnEdicionId !== null) {
+        const { error } = await db.from(STORE_NAME)
+            .update({
+                cliente: String(cliente),
+                detalles: datosPedidoCompleto,
+                total: Number(totalMonto)
+            })
+            .eq('id', Number(pedidoEnEdicionId));
+
+        if (error) {
+            alert("Error al actualizar: " + error.message);
+            return;
+        }
+        pedidoEnEdicionId = null;
+    } else {
+        const { error } = await db.from(STORE_NAME).insert([{
+            cliente: String(cliente),
+            detalles: datosPedidoCompleto,
+            total: Number(totalMonto),
+            estado: 'pendiente',
+            montoPagado: 0,
+            stockDescontado: false
+        }]);
+
+        if (error) {
+            alert("Error al guardar: " + error.message);
+            return;
+        }
+    }
+
+    limpiarCarritoActual();
+    await cargarDatosDesdeSupabase();
+    switchMainTab('listado');
+    alert("¡Pedido guardado con éxito!");
+}
 
         function abrirModalCompletar(id) {
             pedidoEnProcesoId = Number(id);
