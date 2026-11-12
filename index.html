@@ -751,22 +751,27 @@
         }
 
         // 1. ACTUALIZAR PRECIO Y GUARDAR DIRECTO EN SUPABASE
-        async function actualizarPrecioDesdeCatalogo(productoId, nuevoPrecio) {
+       async function actualizarPrecioDesdeCatalogo(productoId, nuevoPrecio) {
             const precioNum = parseFloat(nuevoPrecio);
             const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
+            
             if (prod && !isNaN(precioNum)) {
+                // 1. Actualizamos localmente
                 prod.precio = precioNum;
-                // ⭐ Actualizamos directamente la fila exacta en la tabla 'stock' de Supabase
+
+                // 2. ⭐ GUARDAMOS DIRECTAMENTE EN LA FILA DE SUPABASE PARA QUE NO SE PIERDA
                 const { error } = await db
                     .from(STORE_STOCK)
                     .update({ precio: precioNum })
                     .eq('id', Number(productoId));
 
                 if (error) {
-                    console.error("Error al actualizar precio en Supabase:", error.message);
+                    console.error("Error al guardar el nuevo precio en Supabase:", error.message);
+                    alert("No se pudo guardar el precio en la nube: " + error.message);
                 } else {
-                    console.log("💰 Precio actualizado en la nube con éxito.");
+                    console.log(`💰 Precio del producto #${productoId} actualizado a $${precioNum} en Supabase.`);
                 }
+
                 renderStockMovil();
                 renderCatalogo();
             }
