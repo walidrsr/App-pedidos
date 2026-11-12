@@ -307,20 +307,20 @@
         let pedidoEnEdicionId = null;
         
         let catalogoProductos = [
-            { id: 1, nombre: "Pan Andino", emoji: "🥖", stockActual: 20, precio: 1000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
-            { id: 2, nombre: "Pan de Guayaba", emoji: "🍞", stockActual: 15, precio: 1500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
-            { id: 3, nombre: "Pan de Guayaba con queso", emoji: "🧀", stockActual: 15, precio: 1800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
-            { id: 4, nombre: "Pan de Coco", emoji: "🥥", stockActual: 10, precio: 4000, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
-            { id: 5, nombre: "Pan Salado", emoji: "🥖", stockActual: 12, precio: 3500, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
-            { id: 6, nombre: "Quesadillas", emoji: "🥮", stockActual: 20, precio: 1200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "3 Un.", cant: 3, text: "3 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
-            { id: 7, nombre: "Arroz con leche", emoji: "🍚", stockActual: 10, precio: 2000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 8, nombre: "Quesillo Porcion", emoji: "🍮", stockActual: 10, precio: 2200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 9, nombre: "Quesillo completo", emoji: "🍮", stockActual: 5, precio: 12000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 10, nombre: "Yogurt Natural", emoji: "🥛", stockActual: 12, precio: 2500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 11, nombre: "Yogurt Natural Frutilla", emoji: "🍓", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 12, nombre: "Yogurt Natural Ananá", emoji: "🍍", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 13, nombre: "Yogurt Natural Durazno", emoji: "🍑", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 14, nombre: "Yogurt Natural Arándanos", emoji: "🫐", stockActual: 12, precio: 3000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] }
+            { id: 1, nombre: "Pan Andino", emoji: "🥖", stockActual: 0, precio: 1000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
+            { id: 2, nombre: "Pan de Guayaba", emoji: "🍞", stockActual: 0, precio: 1500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
+            { id: 3, nombre: "Pan de Guayaba con queso", emoji: "🧀", stockActual: 0, precio: 1800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
+            { id: 4, nombre: "Pan de Coco", emoji: "🥥", stockActual: 0, precio: 4000, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
+            { id: 5, nombre: "Pan Salado", emoji: "🥖", stockActual: 0, precio: 3500, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
+            { id: 6, nombre: "Quesadillas", emoji: "🥮", stockActual: 0, precio: 1200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "3 Un.", cant: 3, text: "3 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
+            { id: 7, nombre: "Arroz con leche", emoji: "🍚", stockActual: 0, precio: 2000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 8, nombre: "Quesillo Porcion", emoji: "🍮", stockActual: 0, precio: 2200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 9, nombre: "Quesillo completo", emoji: "🍮", stockActual: 0, precio: 12000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 10, nombre: "Yogurt Natural", emoji: "🥛", stockActual: 0, precio: 2500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 11, nombre: "Yogurt Natural Frutilla", emoji: "🍓", stockActual: 0, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 12, nombre: "Yogurt Natural Ananá", emoji: "🍍", stockActual: 0, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 13, nombre: "Yogurt Natural Durazno", emoji: "🍑", stockActual: 0, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 14, nombre: "Yogurt Natural Arándanos", emoji: "🫐", stockActual: 0, precio: 3000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] }
         ];
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -1039,38 +1039,38 @@
             `).join('');
         }
 
-        function renderListadoGeneral() {
-    const contenedor = document.getElementById('contenedor-listado-pedidos');
-    if (!contenedor) return;
-    if (listaPedidos.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
-        return;
-    }
-    contenedor.innerHTML = listaPedidos.map(p => {
-        const total = Number(p.total || 0);
-        const montoPagado = Number(p.montoPagado || 0);
-        const saldoAdeudado = Math.max(0, total - montoPagado); // ⭐ Resta exacta en tiempo real
+    function renderListadoGeneral() {
+        const contenedor = document.getElementById('contenedor-listado-pedidos');
+        if (!contenedor) return;
+        if (listaPedidos.length === 0) {
+            contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
+            return;
+        }
+        contenedor.innerHTML = listaPedidos.map(p => {
+            const total = Number(p.total || 0);
+            const montoPagado = Number(p.montoPagado || 0);
+            const saldoAdeudado = Math.max(0, total - montoPagado); // Resta exacta en tiempo real
 
-        return `
-            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
-                <div>
-                    <strong class="text-slate-800">#${p.id} - ${p.cliente}</strong>
-                    <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
-                    <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
-                    <div class="mt-1 font-bold">
-                        <span class="text-slate-600">Total: $${total.toLocaleString()}</span>
-                        ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
+            return `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
+                    <div>
+                        <strong class="text-slate-800">#${p.id} - ${p.cliente}</strong>
+                        <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
+                        <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
+                        <div class="mt-1 font-bold">
+                            <span class="text-slate-600">Total: $${total.toLocaleString()}</span>
+                            ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
+                        <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
+                        <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
                     </div>
                 </div>
-                <div class="flex flex-col gap-1">
-                    <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
-                    <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
-                    <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
+            `;
+        }).join('');
+    }
 
 
         async function completarPedidoDirecto(id) {
