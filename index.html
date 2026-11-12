@@ -899,10 +899,19 @@
             limpiarCarritoActual();
             renderCatalogo();
             renderStockMovil();
-            if (typeof actualizarTodo === 'function') actualizarTodo();
+            
+            // ⭐ LLAMAMOS AL RENDERIZADOR DEL LISTADO AQUÍ MISMO
+            if (typeof renderListadoGeneral === 'function') {
+                renderListadoGeneral();
+            }
+            if (typeof actualizarTodo === 'function') {
+                actualizarTodo();
+            }
+
             switchMainTab('listado');
             alert("¡Pedido guardado con éxito!");
         }
+        
 
         async function eliminarPedido(id) {
             if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
@@ -1001,7 +1010,7 @@
         }
 
         function actualizarTodo() {
-            renderListadoPedidos();
+            renderListadoGeneral(); // 👈 Aquí estaba el nombre antiguo (decía renderListadoPedidos)
             renderEntregasHoy();
             renderBadgeHoy();
             renderDeudores();
