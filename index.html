@@ -795,165 +795,100 @@
         }
 
         async function guardarPedido() {
-                const cliente = document.getElementById('input-cliente').value.trim();
-                const fechaEntrega = document.getElementById('input-fecha-entrega').value;
-                const notas = document.getElementById('input-notas').value.trim();
+            const cliente = document.getElementById('input-cliente').value.trim();
+            const fechaEntrega = document.getElementById('input-fecha-entrega').value;
+            const notas = document.getElementById('input-notas').value.trim();
 
-                if (!cliente) return alert("Ingresa el nombre del cliente.");
-                if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
-                if (!fechaEntrega) return alert("Selecciona la fecha.");
+            if (!cliente) return alert("Ingresa el nombre del cliente.");
+            if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
+            if (!fechaEntrega) return alert("Selecciona la fecha.");
 
-                // 🛑 VALIDACIÓN DE STOCK ESTRICTA
-                for (let item of carritoActual) {
-                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                    if (prod && Number(item.cantidad) > Number(prod.stockActual)) {
-                        alert("No te queda Stock");
-                        return;
-                    }
+            // Validación de stock
+            for (let item of carritoActual) {
+                const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                if (prod && Number(item.cantidad) > Number(prod.stockActual)) {
+                    alert("No te queda Stock suficiente");
+                    return;
                 }
+            }
 
-                let totalMonto = 0;
-                const itemsConPrecio = carritoActual.map(item => {
-                    const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                    const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
-                    totalMonto += precio * Number(item.cantidad);
-                    return { ...item, precioUnitario: precio, cantidad: Number(item.cantidad) };
-                });
-
-                // Empaquetamos toda la información extra en un objeto JSON para guardarla en la columna 'detalles'
-                const datosPedidoCompleto = {
-                    fechaEntrega,
-                    notas,
-                    items: itemsConPrecio,
-                    horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            let totalMonto = 0;
+            const itemsConPrecio = carritoActual.map(item => {
+                const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
+                totalMonto += precio * Number(item.cantidad);
+                return { 
+                    productoId: Number(item.productoId),
+                    nombre: item.nombre,
+                    emoji: item.emoji || '',
+                    precioUnitario: Number(precio), 
+                    cantidad: Number(item.cantidad) 
                 };
+            });
 
-                if (pedidoEnEdicionId !== null) {
-                    // --- CASO: EDITAR PEDIDO ---
-                    // (Aquí recuperarías la lógica local y harías un update en Supabase usando el ID)
-                    const { error } = await db
-                        .from(STORE_NAME)
-                        .update({
-                            cliente: cliente,
+            const datosPedidoCompleto = {
+                fechaEntrega: String(fechaEntrega),
+                notas: String(notas || ""),
+                items: itemsConPrecio,
+                horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            if (pedidoEnEdicionId !== null) {
+                const { error } = await db
+                    .from(STORE_NAME)
+                    .update({
+                        cliente: String(cliente),
+                        detalles: datosPedidoCompleto,
+                        total: Number(totalMonto)
+                    })
+                    .eq('id', Number(pedidoEnEdicionId));
+
+                if (error) {
+                    console.error("Error al actualizar en Supabase:", error);
+                    alert("Error al actualizar: " + error.message);
+                    return;
+                }
+                pedidoEnEdicionId = null;
+            } else {
+                const { data, error } = await db
+                    .from(STORE_NAME)
+                    .insert([
+                        {
+                            cliente: String(cliente),
                             detalles: datosPedidoCompleto,
-                            total: totalMonto
-                        })
-                        .eq('id', pedidoEnEdicionId);
+                            total: Number(totalMonto),
+                            estado: 'pendiente'
+                        }
+                    ])
+                    .select();
 
-                    if (error) {
-                        console.error("Error al actualizar pedido:", error);
-                        alert("Hubo un error al actualizar el pedido.");
-                        return;
-                    }
-
-                    pedidoEnEdicionId = null;
-                    const btnCancelar = document.getElementById('btn-cancelar-edicion');
-                    if (btnCancelar) btnCancelar.classList.add('hidden');
-                    const btnGuardar = document.getElementById('btn-guardar-pedido');
-                    if (btnGuardar) btnGuardar.innerText = "GUARDAR PEDIDO";
-
-                } else {
-                    // --- CASO: NUEVO PEDIDO ---
-                    const { data, error } = await db
-                        .from(STORE_NAME)
-                        .insert([
-                            {
-                                cliente: cliente,
-                                detalles: datosPedidoCompleto,
-                                total: Number(totalMonto),
-                                estado: 'pendiente'
-                            }
-                        ])
-                        .select();
-
-                    if (error) {
-                        console.error("Error al guardar en Supabase:", error);
-                        alert("Hubo un error al guardar el pedido en la base de datos.");
-                        return;
-                    }
-
-                    console.log("Pedido guardado con éxito en Supabase:", data);
+                if (error) {
+                    console.error("Error al insertar en Supabase:", error);
+                    alert("Error al guardar en Supabase: " + error.message);
+                    return;
                 }
+                console.log("Guardado exitoso:", data);
+            }
 
-                // Descontar stock real localmente (y opcionalmente actualizar la tabla stock en Supabase)
-                for (let item of itemsConPrecio) {
-                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                    if (prod) {
-                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                        await db
-                            .from(STORE_STOCK)
-                            .update({ cantidad: prod.stockActual })
-                            .eq('id', prod.id);
-                    }
+            // Descontar stock
+            for (let item of itemsConPrecio) {
+                const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                if (prod) {
+                    prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                    await db
+                        .from(STORE_STOCK)
+                        .update({ cantidad: Number(prod.stockActual) })
+                        .eq('id', Number(prod.id));
                 }
+            }
 
-                limpiarCarritoActual();
-                
-                // FORZAR ACTUALIZACIÓN VISUAL INMEDIATA EN PANTALLA
-                renderCatalogo();
-                renderStockMovil();
-
-                if (typeof actualizarTodo === 'function') {
-                    actualizarTodo();
-                }
-
-                switchMainTab('listado');
-                alert("¡Pedido guardado con éxito!");
+            limpiarCarritoActual();
+            renderCatalogo();
+            renderStockMovil();
+            if (typeof actualizarTodo === 'function') actualizarTodo();
+            switchMainTab('listado');
+            alert("¡Pedido guardado con éxito!");
         }
-
-        function renderListadoPedidos() {
-        const contenedor = document.getElementById('contenedor-listado-pedidos');
-        if (!contenedor) return;
-        if (listaPedidos.length === 0) {
-            contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay pedidos pendientes.</p>`;
-            return;
-        }
-        contenedor.innerHTML = listaPedidos.map(p => {
-            // Cálculo rápido para saber si hay saldo pendiente / deuda en este pedido
-            const saldoPendiente = p.total - (p.montoPagado || 0);
-            const tieneDeuda = saldoPendiente > 0;
-
-            return `
-                <div class="p-4 bg-slate-50 rounded-xl border ${tieneDeuda ? 'border-red-300 bg-red-50/30' : 'border-slate-100'} space-y-2.5 text-xs">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2 flex-1">
-                            <div id="nombre-container-${p.id}" class="flex items-center gap-1.5 flex-1">
-                                <strong id="nombre-texto-${p.id}" class="text-slate-900 font-bold text-base">${p.cliente}</strong>
-                                <button onclick="activarEdicionCliente(${p.id})" title="Editar nombre" class="text-slate-400 hover:text-slate-600 text-xs p-1">✏️</button>
-                            </div>
-                            ${p.pagadoAdelantado ? `<span class="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded">PAGADO-FALTA ENTREGAR</span>` : ''}
-                        </div>
-                        <button onclick="eliminarPedido(${p.id})" class="text-red-400 hover:text-red-600 font-bold px-2 py-1 text-base ml-2" title="Eliminar pedido">✕</button>
-                    </div>
-
-                    <!-- AVISO DE DEUDA EN EL LISTADO -->
-                    ${tieneDeuda ? `
-                        <div class="bg-red-100/80 border border-red-200 text-red-900 px-2.5 py-1.5 rounded-lg font-bold flex justify-between items-center text-[11px]">
-                            <span>⚠️ Deuda pendiente:</span>
-                            <span class="font-black text-sm">$${saldoPendiente.toLocaleString()}</span>
-                        </div>
-                    ` : ''}
-
-                    <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200">
-                        <span class="text-[11px] font-bold text-slate-600">📅 Fecha Entrega:</span>
-                        <input type="date" value="${p.fechaEntrega}" onchange="cambiarFechaPedido(${p.id}, this.value)" class="px-2 py-1 bg-slate-50 rounded border border-slate-300 text-xs font-bold text-slate-800">
-                    </div>
-
-                    <div class="text-slate-700 text-xs">
-                        <strong>Productos:</strong> ${p.items.map(i => `${i.nombre} x ${i.cantidad}`).join(', ')}
-                    </div>
-
-                    <div class="flex justify-between items-center pt-2 border-t border-slate-200/50">
-                        <span class="font-black text-emerald-700 text-base">$${p.total.toLocaleString()}</span>
-                        <div class="flex gap-2">
-                            <button onclick="abrirModalAgregarProductos(${p.id})" class="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-lg font-bold transition">➕ Productos</button>
-                            <button onclick="abrirModalCompletar(${p.id})" class="text-xs bg-slate-200 hover:bg-emerald-500 hover:text-white px-3.5 py-1.5 rounded-lg font-bold transition">Gestionar</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            }).join('');
-    }
 
         async function eliminarPedido(id) {
             if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
