@@ -397,9 +397,9 @@
 
         async function cargarDatosDesdeSupabase() {
             try {
-                // 1. CARGAR STOCK / CATÁLOGO
+                // 1. CARGAR STOCK / CATÁLOGO (Independiente para que nunca falle)
                 const { data: prodData, error: errProd } = await db.from('stock').select('*');
-                if (!errProd && prodData) {
+                if (!errProd && prodData && prodData.length > 0) {
                     catalogoProductos = prodData;
                 }
                 renderCatalogo();
@@ -411,17 +411,18 @@
                 if (!errPed && pedData) {
                     listaPedidos = pedData.map(p => ({
                         id: p.id,
-                        cliente: p.cliente,
-                        total: p.total,
-                        estado: p.estado,
+                        cliente: p.cliente || 'Sin nombre',
+                        total: typeof p.total === 'number' ? p.total : Number(p.total || 0),
+                        estado: p.estado || 'pendiente',
                         fechaEntrega: p.detalles?.fechaEntrega || '',
                         notas: p.detalles?.notas || '',
                         items: p.detalles?.items || [],
                         horaRegistro: p.detalles?.horaRegistro || ''
                     }));
+                    if (typeof renderListadoGeneral === 'function') renderListadoGeneral();
                 }
 
-                // 3. CARGAR VENTAS (Mapeando la columna 'detalles_venta')
+                // 3. CARGAR VENTAS
                 const { data: ventData, error: errVent } = await db.from('ventas').select('*');
                 if (!errVent && ventData) {
                     listaVentas = ventData.map(v => ({
@@ -433,26 +434,20 @@
                         items: v.detalles_venta?.items || [],
                         horaRegistro: v.detalles_venta?.horaRegistro || ''
                     }));
-                    if (typeof renderVentasArbol === 'function') {
-                        renderVentasArbol();
-                    }
+                    if (typeof renderVentasArbol === 'function') renderVentasArbol();
                 }
 
                 // 4. CARGAR DEUDORES
                 const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
                 if (!errDeu && deuData) {
                     listaDeudores = deuData;
-                    if (typeof renderDeudores === 'function') {
-                        renderDeudores();
-                    }
+                    if (typeof renderDeudores === 'function') renderDeudores();
                 }
 
-                // Refrescar toda la interfaz visual
                 actualizarTodo();
-                console.log("✅ Todos los datos sincronizados desde Supabase con éxito.");
-
+                console.log("✅ Datos cargados correctamente.");
             } catch (err) {
-                console.error("Error general al cargar datos de Supabase:", err);
+                console.error("Error al cargar datos:", err);
             }
         }
       
