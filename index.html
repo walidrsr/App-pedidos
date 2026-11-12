@@ -690,10 +690,18 @@
             document.getElementById('carrito-total-precio').innerText = `$${totalPedido.toLocaleString()}`;
         }
 
-        async function guardarPedido() {
-    const cliente = document.getElementById('input-cliente').value.trim();
-    const fechaEntrega = document.getElementById('input-fecha-entrega').value;
-    const notas = document.getElementById('input-notas').value.trim();
+       async function guardarPedido() {
+    const inputClienteEl = document.getElementById('input-cliente');
+    const inputFechaEl = document.getElementById('input-fecha-entrega');
+    
+    if (!inputClienteEl || !inputFechaEl) {
+        alert("Error crítico: No se encuentran los elementos del formulario en el HTML.");
+        return;
+    }
+
+    const cliente = inputClienteEl.value.trim();
+    const fechaEntrega = inputFechaEl.value;
+    const notas = document.getElementById('input-notas')?.value.trim() || "";
 
     if (!cliente) return alert("Ingresa el nombre del cliente.");
     if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
@@ -715,7 +723,7 @@
 
     const datosPedidoCompleto = {
         fechaEntrega: String(fechaEntrega),
-        notas: String(notas || ""),
+        notas: String(notas),
         items: itemsConPrecio,
         horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -745,18 +753,21 @@
         }]);
 
         if (error) {
-            alert("Error al guardar: " + error.message);
+            alert("Error al guardar en base de datos: " + error.message);
             return;
         }
     }
 
-    // ⭐ Registro opcional del cliente en segundo plano (no bloquea el botón ni altera tu lógica)
-    db.from('clientes').insert([{ nombre: String(cliente), telefono: 'Sin teléfono' }]).then().catch(() => {});
-
-    limpiarCarritoActual();
-    await cargarDatosDesdeSupabase();
-    switchMainTab('listado');
     alert("¡Pedido guardado con éxito!");
+
+    // Limpieza segura posterior
+    try {
+        if (typeof limpiarCarritoActual === 'function') limpiarCarritoActual();
+        if (typeof cargarDatosDesdeSupabase === 'function') await cargarDatosDesdeSupabase();
+        if (typeof switchMainTab === 'function') switchMainTab('listado');
+    } catch (e) {
+        console.log("Aviso en post-guardado:", e);
+    }
 }
 
         function abrirModalCompletar(id) {
