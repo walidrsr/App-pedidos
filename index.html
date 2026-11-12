@@ -774,6 +774,22 @@
                     return;
                 }
             }
+            // 📦 2. DESCONTAR STOCK REAL EN LA TABLA 'stock' DE SUPABASE Y EN LOCAL
+        for (const item of itemsConPrecio) {
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+            if (prod) {
+                prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                
+                // Actualizar directamente en la base de datos Supabase
+                const { error: errStock } = await db.from('stock')
+                    .update({ cantidad: Number(prod.stockActual) })
+                    .eq('id', Number(prod.id));
+
+                if (errStock) {
+                    console.error("Error al descontar stock en Supabase:", errStock.message);
+                }
+            }
+        }
 
             // Limpiar carrito, formulario y recargar datos desde Supabase
             limpiarCarritoActual();
@@ -1037,7 +1053,7 @@
             }).join('');
         }  
 
-        
+
         async function completarPedidoDirecto(id) {
             if (!confirm("¿Estás seguro de que deseas eliminar este pedido permanentemente?")) {
                 return;
