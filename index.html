@@ -728,46 +728,29 @@
         horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    if (pedidoEnEdicionId !== null) {
-        const { error } = await db.from(STORE_NAME)
-            .update({
-                cliente: String(cliente),
-                detalles: datosPedidoCompleto,
-                total: Number(totalMonto)
-            })
-            .eq('id', Number(pedidoEnEdicionId));
-
-        if (error) {
-            alert("Error al actualizar: " + error.message);
-            return;
-        }
-        pedidoEnEdicionId = null;
-    } else {
-        const { error } = await db.from(STORE_NAME).insert([{
-            cliente: String(cliente),
-            detalles: datosPedidoCompleto,
-            total: Number(totalMonto),
-            estado: 'pendiente',
-            montoPagado: 0,
-            stockDescontado: false
-        }]);
-
-        if (error) {
-            alert("Error al guardar en base de datos: " + error.message);
-            return;
-        }
+   if (pedidoEnEdicionId !== null) {
+    const { error } = await db.from('pedidos') // 👈 Cámbialo aquí
+        .update({ cliente: String(cliente), detalles: datosPedidoCompleto, total: Number(totalMonto) })
+        .eq('id', Number(pedidoEnEdicionId));
+    if (error) {
+        alert("Error al actualizar: " + error.message);
+        return;
     }
-
-    alert("¡Pedido guardado con éxito!");
-
-    // Limpieza segura posterior
-    try {
-        if (typeof limpiarCarritoActual === 'function') limpiarCarritoActual();
-        if (typeof cargarDatosDesdeSupabase === 'function') await cargarDatosDesdeSupabase();
-        if (typeof switchMainTab === 'function') switchMainTab('listado');
-    } catch (e) {
-        console.log("Aviso en post-guardado:", e);
+    pedidoEnEdicionId = null;
+} else {
+    const { error } = await db.from('pedidos').insert([{ // 👈 Y cámbialo aquí también
+        cliente: String(cliente), 
+        detalles: datosPedidoCompleto, 
+        total: Number(totalMonto), 
+        estado: 'pendiente', 
+        montoPagado: 0, 
+        stockDescontado: false 
+    }]);
+    if (error) {
+        alert("Error al guardar en base de datos: " + error.message);
+        return;
     }
+}
 }
 
         function abrirModalCompletar(id) {
