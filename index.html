@@ -346,84 +346,91 @@
         }
     }
 
-   async function cargarDatosDesdeSupabase() {
+  async function cargarDatosDesdeSupabase() {
         try {
-            // 1. CARGAR STOCK Y PRECIOS
-            const { data: prodData, error: errProd } = await db.from('stock').select('*');
+            // 1. Cargar Stock desde Supabase
+            const { data: prodData, error: errProd } = await db.from(STORE_STOCK).select('*');
             
             if (!errProd && prodData && prodData.length > 0) {
-            catalogoProductos = catalogoProductos.map(cat => {
-                const encontrado = prodData.find(p => Number(p.id) === Number(cat.id));
-                if (encontrado) {
-                return {
-                    ...cat,
-                    stockActual: encontrado.stockActual !== undefined ? encontrado.stockActual : (encontrado.cantidad !== undefined ? encontrado.cantidad : cat.stockActual),
-                    precio: encontrado.precio !== undefined ? Number(encontrado.precio) : cat.precio
-                };
-                }
-                return cat;
-            });
+                // Si hay datos en la nube, los fusionamos con el catálogo local
+                catalogoProductos = catalogoProductos.map(catItem => {
+                    const found = prodData.find(p => Number(p.id) === Number(catItem.id));
+                    return found ? { 
+                        ...catItem, 
+                        precio: Number(found.precio ?? catItem.precio), 
+                        stockActual: Number(found.stockActual ?? found.cantidad ?? catItem.stockActual) 
+                    } : catItem;
+                });
             } else {
-            // Si la tabla 'stock' está totalmente vacía en Supabase, inicializamos los datos por defecto automáticamente
-            for (const prod of catalogoProductos) {
-                await sincronizarProductoEnSupabase(prod);
-            }
+                // ⭐ Si la tabla stock en Supabase está vacía, la poblamos de inmediato por primera vez
+                console.warn("La tabla stock está vacía en Supabase. Poblando datos iniciales...");
+                await db.from(STORE_STOCK).upsert(
+                    catalogoProductos.map(p => ({ 
+                        id: Number(p.id), 
+                        nombre: String(p.nombre), 
+                        emoji: String(p.emoji || ''), 
+                        precio: Number(p.precio), 
+                        stockActual: Number(p.stockActual) 
+                    })), 
+                    { onConflict: 'id' }
+                );
             }
 
+            // Renderizamos las vistas de stock y catálogo inmediatamente
             renderCatalogo();
             renderStockMovil();
             renderSelectProveedores();
 
-            // 2. CARGAR PEDIDOS
-            const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
+            // 2. Cargar Pedidos
+            const { data: pedData, error: errPed } = await db.from(STORE_NAME).select('*');
             if (!errPed && pedData) {
-            listaPedidos = pedData.map(p => ({
-                id: p.id,
-                cliente: p.cliente,
-                total: p.total,
-                estado: p.estado,
-                fechaEntrega: p.detalles?.fechaEntrega || '',
-                notas: p.detalles?.notas || '',
-                items: p.detalles?.items || [],
-                montoPagado: p.montoPagado || 0,
-                stockDescontado: p.stockDescontado || false,
-                horaRegistro: p.detalles?.horaRegistro || ''
-            }));
+                listaPedidos = pedData.map(p => ({
+                    id: p.id,
+                    cliente: p.cliente,
+                    total: Number(p.total || 0),
+                    estado: p.estado || 'pendiente',
+                    montoPagado: Number(p.montoPagado || 0),
+                    stockDescontado: p.stockDescontado || false,
+                    fechaEntrega: p.detalles?.fechaEntrega || '',
+                    notas: p.detalles?.notas || '',
+                    items: p.detalles?.items || [],
+                    horaRegistro: p.detalles?.horaRegistro || ''
+                }));
             }
 
-            // 3. CARGAR VENTAS
-            const { data: ventData, error: errVent } = await db.from('ventas').select('*');
+            // 3. Cargar Ventas
+            const { data: ventData, error: errVent } = await db.from(STORE_VENTAS).select('*');
             if (!errVent && ventData) {
-            listaVentas = ventData.map(v => ({
-                id: v.id,
-                cliente: v.cliente,
-                total: v.total,
-                metodo_pago: v.metodo_pago,
-                fecha: v.created_at ? new Date(v.created_at).toLocaleString() : (v.fecha || new Date().toLocaleString()),
-                items: v.detalles_venta?.items || v.items || [],
-                horaRegistro: v.detalles_venta?.horaRegistro || ''
-            }));
-            if (typeof renderVentasArbol === 'function') renderVentasArbol();
+                listaVentas = ventData.map(v => ({
+                    id: v.id,
+                    cliente: v.cliente,
+                    total: Number(v.total || 0),
+                    metodo_pago: v.metodo_pago,
+                    fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
+                    fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
+                    items: v.detalles_venta?.items || [],
+                    horaRegistro: v.detalles_venta?.horaRegistro || ''
+                }));
+                if (typeof renderVentasArbol === 'function') renderVentasArbol();
             }
 
-            // 4. CARGAR DEUDORES
-            const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
+            // 4. Cargar Deudores
+            const { data: deuData, error: errDeu } = await db.from(STORE_DEUDORES).select('*');
             if (!errDeu && deuData) {
-            listaDeudores = deuData.map(d => ({
-                id: d.id,
-                cliente: d.cliente,
-                monto: d.montoTotal !== undefined ? d.montoTotal : (d.monto !== undefined ? d.monto : d.saldoPendiente),
-                concepto: d.concepto || '',
-                fecha: d.fecha || ''
-            }));
-            if (typeof renderDeudores === 'function') renderDeudores();
+                listaDeudores = deuData.map(d => ({
+                    id: d.id,
+                    cliente: d.cliente,
+                    monto: Number(d.monto || d.montoTotal || d.saldoPendiente || 0),
+                    concepto: d.concepto || 'Deuda'
+                }));
             }
 
             actualizarTodo();
+            console.log("✅ Datos y stock cargados correctamente desde Supabase.");
         } catch (err) {
-            console.error("Error general al cargar datos de Supabase:", err);
+            console.error("Error al cargar datos desde Supabase:", err);
         }
-        }
+    }
 
     function renderCatalogo() {
       const contenedor = document.getElementById('contenedor-catalogo');
