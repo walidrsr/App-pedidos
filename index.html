@@ -1,1079 +1,1093 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>La Merideña - Pedidos, Stock y Ventas</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,500&display=swap" rel="stylesheet">
-  <!-- Supabase JS Client CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            meridena: {
-              sky: '#4A86A8',
-              skyLight: '#E8F1F5',
-              skyDark: '#32607B',
-              sun: '#E6A100',
-              sunLight: '#FFF6D6',
-              sunHover: '#C68B00',
-              dark: '#2C3E50',
-              bg: '#F8FAFC',
-              card: '#FFFFFF',
-              green: '#10B981'
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>La Merideña - Pedidos, Stock y Ventas</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,500&display=swap" rel="stylesheet">
+    <!-- Supabase JS Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        meridena: {
+                            sky: '#4A86A8',
+                            skyLight: '#E8F1F5',
+                            skyDark: '#32607B',
+                            sun: '#E6A100',
+                            sunLight: '#FFF6D6',
+                            sunHover: '#C68B00',
+                            dark: '#2C3E50',
+                            bg: '#F8FAFC',
+                            card: '#FFFFFF',
+                            green: '#10B981'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        brand: ['Playfair Display', 'serif']
+                    }
+                }
             }
-          },
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            brand: ['Playfair Display', 'serif']
-          }
         }
-      }
-    }
-  </script>
-  <style>
-    body { background-color: #FDFBF7; color: #3E2723; padding-bottom: 70px; }
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #F5EBE6; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #D7CCC8; border-radius: 4px; }
-  </style>
+    </script>
+    <style>
+        body { background-color: #FDFBF7; color: #3E2723; padding-bottom: 70px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #F5EBE6; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #D7CCC8; border-radius: 4px; }
+    </style>
 </head>
 <body class="min-h-screen font-sans flex flex-col antialiased selection:bg-meridena-sunLight selection:text-meridena-dark">
 
-  <!-- HEADER MÓVIL COMPACTO -->
-  <header class="bg-white border-b border-slate-200/85 shadow-xs sticky top-0 z-30">
-    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-2.5">
-        <div class="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border border-slate-200 shrink-0 bg-white">
-          <img src="logo.jpg" alt="La Merideña" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
+    <!-- HEADER MÓVIL COMPACTO -->
+    <header class="bg-white border-b border-slate-200/85 shadow-xs sticky top-0 z-30">
+        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border border-slate-200 shrink-0 bg-white">
+                    <img src="logo.jpg" alt="La Merideña" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'">
+                </div>
+                <div>
+                    <h1 class="font-brand font-bold text-lg text-meridena-dark leading-tight">La Merideña</h1>
+                    <p class="text-[10px] font-bold text-meridena-sky tracking-wider uppercase">Pedidos & Ventas 🇻🇪</p>
+                </div>
+            </div>
+            <!-- BADGE ENTREGAS HOY -->
+            <div class="bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl flex items-center gap-2">
+                <span class="relative flex h-2.5 w-2.5">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+                <div>
+                    <span class="text-[9px] font-extrabold text-amber-800 uppercase block">Hoy</span>
+                    <span id="badge-entregas-hoy" class="text-base font-black text-amber-900 leading-none">0</span>
+                </div>
+            </div>
         </div>
-        <div>
-          <h1 class="font-brand font-bold text-lg text-meridena-dark leading-tight">La Merideña</h1>
-          <p class="text-[10px] font-bold text-meridena-sky tracking-wider uppercase">Pedidos & Ventas 🇻🇪</p>
-        </div>
-      </div>
-      <!-- BADGE ENTREGAS HOY -->
-      <div class="bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl flex items-center gap-2">
-        <span class="relative flex h-2.5 w-2.5">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-        </span>
-        <div>
-          <span class="text-[9px] font-extrabold text-amber-800 uppercase block">Hoy</span>
-          <span id="badge-entregas-hoy" class="text-base font-black text-amber-900 leading-none">0</span>
-        </div>
-      </div>
-    </div>
-  </header>
+    </header>
 
-  <!-- MAIN CONTENT -->
-  <main class="flex-1 max-w-md w-full mx-auto px-4 py-4 space-y-4">
-    
-    <!-- SECCIÓN 1: TOMAR PEDIDO -->
-    <div id="view-tomar" class="space-y-4">
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-        <div class="flex justify-between items-center">
-          <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
-            <i data-lucide="user-plus" class="w-4 h-4 text-meridena-sky"></i> Datos del Cliente
-          </h2>
-          <button id="btn-cancelar-edicion" onclick="cancelarEdicionPedido()" class="hidden text-xs bg-red-100 text-red-700 px-2 py-1 rounded-lg font-bold">Cancelar Edición</button>
-        </div>
-        <div>
-          <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre / Teléfono</label>
-          <input type="text" id="input-cliente" list="sugerencias-clientes" placeholder="Ej: Sra. Carmen" oninput="guardarBorradorPedido()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-meridena-sky">
-          <datalist id="sugerencias-clientes"></datalist>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-[11px] font-bold text-amber-800 uppercase mb-1">Entrega</label>
-            <input type="date" id="input-fecha-entrega" onchange="guardarBorradorPedido()" class="w-full px-2 py-2 rounded-xl border border-amber-300 text-xs font-bold bg-amber-50/50">
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Notas</label>
-            <input type="text" id="input-notas" placeholder="Ej: Tarde" oninput="guardarBorradorPedido()" class="w-full px-2 py-2 rounded-xl border border-slate-200 text-xs font-medium">
-          </div>
-        </div>
-      </div>
-
-      <!-- CATÁLOGO -->
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-        <h2 class="font-brand font-bold text-base text-meridena-dark mb-3 flex items-center gap-2">
-          <i data-lucide="package" class="w-4 h-4 text-amber-500"></i> Catálogo y Precios
-        </h2>
-        <div class="grid grid-cols-1 gap-2.5" id="contenedor-catalogo"></div>
-      </div>
-
-      <!-- CARRITO -->
-      <div class="bg-white p-4 rounded-2xl border-2 border-meridena-sky/40 shadow-sm space-y-3">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-          <h3 class="font-brand font-bold text-sm text-meridena-dark flex items-center gap-1.5">
-            <i data-lucide="shopping-cart" class="w-4 h-4 text-meridena-sky"></i> Pedido Actual
-          </h3>
-          <button onclick="limpiarCarritoActual()" class="text-xs font-bold text-red-500">Vaciar</button>
-        </div>
-        <div id="contenedor-carrito" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar"></div>
-        <div class="flex justify-between items-center text-xs font-extrabold text-slate-800 pt-1 border-t border-slate-100">
-          <span class="text-sm font-bold">Total Estimado:</span>
-          <span id="carrito-total-precio" class="text-lg font-black text-amber-900">$0.00</span>
-        </div>
-        <button id="btn-guardar-pedido" onclick="guardarPedido()" class="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-base rounded-xl shadow-sm transition flex items-center justify-center gap-2">
-          <i data-lucide="check-circle" class="w-5 h-5"></i> GUARDAR PEDIDO
-        </button>
-      </div>
-    </div>
-
-    <!-- SECCIÓN 2: AGENDA SOLO HOY -->
-    <div id="view-recordatorios" class="hidden space-y-4">
-      <div class="bg-[#8D6E63] text-white p-4 rounded-2xl shadow-sm">
-        <span class="text-[10px] font-extrabold uppercase tracking-widest bg-[#EFEBE9] text-[#4E342E] px-2.5 py-0.5 rounded-full">🔔 Urgente</span>
-        <h2 class="font-brand font-bold text-xl mt-1">Entregas de HOY</h2>
-      </div>
-      <div class="bg-white p-4 rounded-2xl border border-[#D7CCC8] shadow-2xs">
-        <div id="container-entregas-hoy" class="space-y-3"></div>
-      </div>
-    </div>
-
-    <!-- SECCIÓN 3: LISTADO GENERAL -->
-    <div id="view-listado" class="hidden space-y-4">
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-        <h2 class="font-brand font-bold text-base text-slate-800 mb-1">Todos los Pedidos</h2>
-        <p class="text-[11px] text-slate-400 mb-3">Historial completo. Puedes cambiar fechas, editar productos o gestionar cobros.</p>
-        <div id="contenedor-listado-pedidos" class="space-y-3"></div>
-      </div>
-    </div>
-
-    <!-- SECCIÓN 4: STOCK -->
-    <div id="view-proveedores" class="hidden space-y-4">
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-        <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
-          <i data-lucide="truck" class="w-4 h-4 text-meridena-sky"></i> Pedido a Proveedores (Reabastecer)
-        </h2>
-        <div class="space-y-2">
-          <select id="prov-producto-select" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold"></select>
-          <div class="grid grid-cols-2 gap-2">
-            <input type="number" id="prov-cantidad" placeholder="Cantidad a sumar" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
-            <input type="text" id="prov-nombre" placeholder="Nombre Proveedor" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
-          </div>
-          <button onclick="registrarPedidoProveedor()" class="w-full py-2 bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-xs rounded-xl transition">
-            + Registrar Pedido & Actualizar Stock
-          </button>
-        </div>
-      </div>
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
-            <i data-lucide="box" class="w-4 h-4 text-meridena-sky"></i> Control de Stock (Unidades)
-          </h2>
-        </div>
-        <div id="contenedor-stock-movil" class="space-y-3"></div>
-      </div>
-    </div>
-
-    <!-- SECCIÓN 5: VENTAS -->
-    <div id="view-ventas" class="hidden space-y-4">
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-          <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
-            <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-600"></i> Historial de Ventas (Jerárquico)
-          </h2>
-        </div>
-        <div id="contenedor-arbol-ventas" class="space-y-3"></div>
-      </div>
-    </div>
-
-    <!-- SECCIÓN 6: DEUDORES -->
-    <div id="view-deudores" class="hidden space-y-4">
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-          <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
-            <i data-lucide="wallet" class="w-4 h-4 text-red-500"></i> Cuentas Corrientes (Deudores)
-          </h2>
-        </div>
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">
-          <span class="text-[11px] font-bold text-slate-700 block">Registrar Nueva Deuda</span>
-          <input type="text" id="deudor-nombre" placeholder="Nombre del cliente" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
-          <div class="grid grid-cols-2 gap-2">
-            <input type="number" id="deudor-monto" placeholder="Monto adeudado ($)" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
-            <input type="text" id="deudor-concepto" placeholder="Concepto" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
-          </div>
-          <button onclick="agregarDeudor()" class="w-full py-2 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-lg transition">
-            + Registrar Deuda
-          </button>
-        </div>
-        <div id="contenedor-lista-deudores" class="space-y-2.5 mt-2"></div>
-      </div>
-    </div>
-  </main>
-
-  <!-- BARRA DE NAVEGACIÓN INFERIOR (6 BOTONES) -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg py-1.5 px-1 z-40">
-    <div class="max-w-md mx-auto grid grid-cols-6 gap-0.5 text-center">
-      <button onclick="switchMainTab('tomar')" id="nav-btn-tomar" class="flex flex-col items-center justify-center py-1 text-meridena-sky font-bold text-[8px]">
-        <i data-lucide="plus-circle" class="w-4 h-4 mb-0.5"></i> Pedido
-      </button>
-      <button onclick="switchMainTab('recordatorios')" id="nav-btn-recordatorios" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
-        <i data-lucide="bell" class="w-4 h-4 mb-0.5"></i> Hoy
-      </button>
-      <button onclick="switchMainTab('listado')" id="nav-btn-listado" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
-        <i data-lucide="list" class="w-4 h-4 mb-0.5"></i> Listado
-      </button>
-      <button onclick="switchMainTab('proveedores')" id="nav-btn-proveedores" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
-        <i data-lucide="box" class="w-4 h-4 mb-0.5"></i> Stock
-      </button>
-      <button onclick="switchMainTab('ventas')" id="nav-btn-ventas" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
-        <i data-lucide="bar-chart-3" class="w-4 h-4 mb-0.5"></i> Ventas
-      </button>
-      <button onclick="switchMainTab('deudores')" id="nav-btn-deudores" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
-        <i data-lucide="wallet" class="w-4 h-4 mb-0.5"></i> Deudas
-      </button>
-    </div>
-  </nav>
-
-  <!-- MODAL GESTIONAR -->
-  <div id="modal-completar" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white p-5 rounded-2xl max-w-sm w-full space-y-4 shadow-xl">
-      <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-        <h3 class="font-brand font-bold text-base text-slate-900" id="modal-titulo-cliente">Gestión del Pedido</h3>
-        <button onclick="cerrarModalCompletar()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-      </div>
-      <div class="space-y-3 text-xs">
-        <div class="bg-slate-50 p-2.5 rounded-xl flex justify-between items-center">
-          <span class="text-slate-600 font-semibold">Total del Pedido:</span>
-          <strong id="modal-total-venta" class="text-lg font-black text-slate-900">$0.00</strong>
-        </div>
-        <div class="bg-amber-50 p-2.5 rounded-xl flex justify-between items-center border border-amber-100">
-          <span class="text-amber-800 font-bold">Deuda Pendiente Actual:</span>
-          <strong id="modal-deuda-pendiente" class="text-base font-black text-red-600">$0.00</strong>
-        </div>
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">Monto que paga hoy ($):</label>
-          <input type="number" id="modal-input-monto-pagado" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-lg font-black text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-        </div>
-      </div>
-      <div class="space-y-2 pt-2">
-        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">Selecciona qué está pasando:</p>
-        <button onclick="gestionarPedidoAccion('solo-pago', false)" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
-          <i data-lucide="wallet" class="w-4 h-4"></i> 💵 REGISTRAR PAGO (Falta entregar)
-        </button>
-        <button onclick="gestionarPedidoAccion('entregar-total', true)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
-          <i data-lucide="check-circle" class="w-4 h-4"></i> ✅ ENTREGAR Y COBRAR (Finalizar venta)
-        </button>
-        <button onclick="cerrarModalCompletar()" class="w-full py-2 text-slate-400 font-bold text-xs hover:text-slate-600"> Cancelar </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- SCRIPTS -->
-  <script>
-    const SUPABASE_URL = 'https://clfzcabhguqnakiacuuj.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_rO8v9ZwqjfgcXMc5-74yvQ_O4kLQA7j'; 
-    const STORE_STOCK = "stock";
-    const STORE_NAME = "pedidos";
-    const STORE_DEUDORES = "deudores";
-    const STORE_VENTAS = "ventas";
-
-    const { createClient } = supabase;
-    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // Sincronización en tiempo real (Supabase Realtime)
-    db.channel('public:base_completa')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => { cargarDatosDesdeSupabase(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => { cargarDatosDesdeSupabase(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, () => { cargarDatosDesdeSupabase(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock' }, () => { cargarDatosDesdeSupabase(); })
-      .subscribe();
-
-    let carritoActual = [];
-    let listaPedidos = [];
-    let listaDeudores = [];
-    let listaVentas = [];
-    let pedidoEnProcesoId = null;
-    let pedidoEnEdicionId = null;
-
-    let catalogoProductos = [
-      { id: 1, nombre: "Pan Andino", emoji: "🥖", stockActual: 20, precio: 1000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
-      { id: 2, nombre: "Pan de Guayaba", emoji: "🍞", stockActual: 15, precio: 1500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
-      { id: 3, nombre: "Pan de Guayaba con queso", emoji: "🧀", stockActual: 15, precio: 1800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
-      { id: 4, nombre: "Pan de Coco", emoji: "🥥", stockActual: 10, precio: 4000, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
-      { id: 5, nombre: "Pan Salado", emoji: "🥖", stockActual: 12, precio: 3500, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
-      { id: 6, nombre: "Quesadillas", emoji: "🥮", stockActual: 20, precio: 1200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "3 Un.", cant: 3, text: "3 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
-      { id: 7, nombre: "Arroz con leche", emoji: "🍚", stockActual: 10, precio: 2000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-      { id: 8, nombre: "Quesillo Porcion", emoji: "🍮", stockActual: 10, precio: 2200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-      { id: 9, nombre: "Quesillo completo", emoji: "🍮", stockActual: 5, precio: 12000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-      { id: 10, nombre: "Yogurt Natural", emoji: "🥛", stockActual: 12, precio: 2500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-      { id: 11, nombre: "Yogurt Natural Frutilla", emoji: "🍓", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-      { id: 12, nombre: "Yogurt Natural Ananá", emoji: "🍍", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-      { id: 13, nombre: "Yogurt Natural Durazno", emoji: "🍑", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-      { id: 14, nombre: "Yogurt Natural Arándanos", emoji: "🫐", stockActual: 12, precio: 3000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] }
-    ];
-
-    window.addEventListener('DOMContentLoaded', () => {
-      if (window.lucide) lucide.createIcons();
-      const inputFecha = document.getElementById('input-fecha-entrega');
-      if (inputFecha) inputFecha.value = getFechaOffset(0);
-      cargarBorradorPedido();
-      cargarDatosDesdeSupabase();
-    });
-
-    async function guardarEnSupabase(nombreTabla, objetoDatos) {
-      try {
-        const { error } = await db.from(nombreTabla).upsert(objetoDatos, { onConflict: 'id' });
-        if (error) console.error(`Error al guardar en ${nombreTabla}:`, error.message);
-      } catch (err) {
-        console.error("Error de red al guardar:", err);
-      }
-    }
-    async function sincronizarProductoEnSupabase(prod) {
-        try {
-            const { error } = await db.from(STORE_STOCK).upsert({
-            id: Number(prod.id),
-            nombre: String(prod.nombre),
-            emoji: String(prod.emoji),
-            stockActual: Number(prod.stockActual),
-            precio: Number(prod.precio)
-            }, { onConflict: 'id' });
-            
-            if (error) console.error(`Error al guardar producto ${prod.id}:`, error.message);
-        } catch (err) {
-            console.error("Error de red al guardar en stock:", err);
-        }
-    }
-
-  async function cargarDatosDesdeSupabase() {
-    try {
-        // 1. Cargar Stock desde Supabase
-        const { data: prodData, error: errProd } = await db.from('stock').select('*');
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 max-w-md w-full mx-auto px-4 py-4 space-y-4">
         
-        if (!errProd && prodData && prodData.length > 0) {
-            // Fusionamos los datos de Supabase con tu catálogo local
-            catalogoProductos = catalogoProductos.map(catItem => {
-                const found = prodData.find(p => Number(p.id) === Number(catItem.id));
-                return found ? { 
-                    ...catItem, 
-                    precio: Number(found.precio ?? catItem.precio), 
-                    stockActual: Number(found.stockActual ?? found.cantidad ?? catItem.stockActual) 
-                } : catItem;
-            });
-        } else {
-            console.warn("⚠️ La tabla stock está vacía en Supabase. Insertando catálogo inicial...");
-            // ⭐ Insertamos todos los productos por primera vez en la nube
-            const productosParaInsertar = catalogoProductos.map(p => ({ 
-                id: Number(p.id), 
-                nombre: String(p.nombre), 
-                emoji: String(p.emoji || ''), 
-                precio: Number(p.precio), 
-                stockActual: Number(p.stockActual) 
-            }));
-            
-            await db.from('stock').upsert(productosParaInsertar, { onConflict: 'id' });
-        }
-
-        // Renderizamos las vistas del catálogo y stock inmediatamente
-        renderCatalogo();
-        renderStockMovil();
-        renderSelectProveedores();
-
-        // 2. Cargar Pedidos
-        const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
-        if (!errPed && pedData) {
-            listaPedidos = pedData.map(p => ({
-                id: p.id,
-                cliente: p.cliente,
-                total: Number(p.total || 0),
-                estado: p.estado || 'pendiente',
-                montoPagado: Number(p.montoPagado || 0),
-                stockDescontado: p.stockDescontado || false,
-                fechaEntrega: p.detalles?.fechaEntrega || '',
-                notas: p.detalles?.notas || '',
-                items: p.detalles?.items || [],
-                horaRegistro: p.detalles?.horaRegistro || ''
-            }));
-        }
-
-        // 3. Cargar Ventas
-        const { data: ventData, error: errVent } = await db.from('ventas').select('*');
-        if (!errVent && ventData) {
-            listaVentas = ventData.map(v => ({
-                id: v.id,
-                cliente: v.cliente,
-                total: Number(v.total || 0),
-                metodo_pago: v.metodo_pago,
-                fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
-                fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
-                items: v.detalles_venta?.items || [],
-                horaRegistro: v.detalles_venta?.horaRegistro || ''
-            }));
-            if (typeof renderVentasArbol === 'function') renderVentasArbol();
-        }
-
-        // 4. Cargar Deudores
-        const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
-        if (!errDeu && deuData) {
-            listaDeudores = deuData.map(d => ({
-                id: d.id,
-                cliente: d.cliente,
-                monto: Number(d.monto || d.montoTotal || d.saldoPendiente || 0),
-                concepto: d.concepto || 'Deuda'
-            }));
-        }
-
-        actualizarTodo();
-        console.log("✅ Stock y datos sincronizados correctamente.");
-    } catch (err) {
-        console.error("Error al cargar datos desde Supabase:", err);
-    }
-}
-    function renderCatalogo() {
-      const contenedor = document.getElementById('contenedor-catalogo');
-      if (!contenedor) return;
-      contenedor.innerHTML = catalogoProductos.map(prod => `
-        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-between space-y-2.5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <span class="text-3xl">${prod.emoji}</span>
-              <div>
-                <h4 class="font-bold text-slate-900 text-sm">${prod.nombre}</h4>
-                <span class="text-xs text-slate-500 font-semibold">Stock: ${prod.stockActual} u.</span>
-              </div>
+        <!-- SECCIÓN 1: TOMAR PEDIDO -->
+        <div id="view-tomar" class="space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="user-plus" class="w-4 h-4 text-meridena-sky"></i> Datos del Cliente
+                    </h2>
+                    <button id="btn-cancelar-edicion" onclick="cancelarEdicionPedido()" class="hidden text-xs bg-red-100 text-red-700 px-2 py-1 rounded-lg font-bold">Cancelar Edición</button>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nombre / Teléfono</label>
+                    <input type="text" id="input-cliente" list="sugerencias-clientes" placeholder="Ej: Sra. Carmen" oninput="guardarBorradorPedido()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-meridena-sky">
+                    <datalist id="sugerencias-clientes"></datalist>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-bold text-amber-800 uppercase mb-1">Entrega</label>
+                        <input type="date" id="input-fecha-entrega" onchange="guardarBorradorPedido()" class="w-full px-2 py-2 rounded-xl border border-amber-300 text-xs font-bold bg-amber-50/50">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Notas</label>
+                        <input type="text" id="input-notas" placeholder="Ej: Tarde" oninput="guardarBorradorPedido()" class="w-full px-2 py-2 rounded-xl border border-slate-200 text-xs font-medium">
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs text-slate-400 font-bold">$</span>
-              <input type="number" id="input-precio-${prod.id}" value="${prod.precio}" class="w-24 px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-base font-black text-emerald-700 text-right">
+
+            <!-- CATÁLOGO -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+                <h2 class="font-brand font-bold text-base text-meridena-dark mb-3 flex items-center gap-2">
+                    <i data-lucide="package" class="w-4 h-4 text-amber-500"></i> Catálogo y Precios
+                </h2>
+                <div class="grid grid-cols-1 gap-2.5" id="contenedor-catalogo"></div>
             </div>
-          </div>
-          <div class="flex items-center justify-between pt-1 border-t border-slate-200/60">
-            <button onclick="guardarPrecioProducto(${prod.id})" class="px-2.5 py-1 bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-[10px] rounded-lg transition shadow-2xs">
-              💾 Modificar Precio
-            </button>
-            <div class="flex flex-wrap gap-1">
-              ${prod.rapidos.map(btn => `
-                <button onclick="agregarAlCarrito(${prod.id}, ${btn.cant}, '${btn.text}')" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg transition">
-                  + ${btn.label}
+
+            <!-- CARRITO -->
+            <div class="bg-white p-4 rounded-2xl border-2 border-meridena-sky/40 shadow-sm space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 class="font-brand font-bold text-sm text-meridena-dark flex items-center gap-1.5">
+                        <i data-lucide="shopping-cart" class="w-4 h-4 text-meridena-sky"></i> Pedido Actual
+                    </h3>
+                    <button onclick="limpiarCarritoActual()" class="text-xs font-bold text-red-500">Vaciar</button>
+                </div>
+                <div id="contenedor-carrito" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                <div class="flex justify-between items-center text-xs font-extrabold text-slate-800 pt-1 border-t border-slate-100">
+                    <span class="text-sm font-bold">Total Estimado:</span>
+                    <span id="carrito-total-precio" class="text-lg font-black text-amber-900">$0.00</span>
+                </div>
+                <button id="btn-guardar-pedido" onclick="guardarPedido()" class="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-base rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                    <i data-lucide="check-circle" class="w-5 h-5"></i> GUARDAR PEDIDO
                 </button>
-              `).join('')}
             </div>
-          </div>
         </div>
-      `).join('');
-    }
 
-    function renderStockMovil() {
-      const contenedor = document.getElementById('contenedor-stock-movil');
-      if (!contenedor) return;
-      contenedor.innerHTML = catalogoProductos.map(prod => {
-        let infoPaquetes = "";
-        if (prod.unidadesPorPaquete) {
-          const paquetesTotales = (prod.stockActual / prod.unidadesPorPaquete).toFixed(1);
-          infoPaquetes = `<span class="text-xs text-amber-700 font-bold block">📦 Equivalente: ${paquetesTotales} paquetes (${prod.unidadesPorPaquete}u c/u)</span>`;
-        }
-        return `
-          <div class="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-            <div class="flex items-center gap-2.5">
-              <span class="text-3xl">${prod.emoji}</span>
-              <div class="flex flex-col">
-                <span class="font-bold text-sm text-meridena-dark">${prod.nombre}</span>
-                <span class="text-xs text-slate-500">Stock: <strong class="text-slate-900 text-base font-black">${prod.stockActual} u.</strong></span>
-                ${infoPaquetes}
-              </div>
+        <!-- SECCIÓN 2: AGENDA SOLO HOY -->
+        <div id="view-recordatorios" class="hidden space-y-4">
+            <div class="bg-[#8D6E63] text-white p-4 rounded-2xl shadow-sm">
+                <span class="text-[10px] font-extrabold uppercase tracking-widest bg-[#EFEBE9] text-[#4E342E] px-2.5 py-0.5 rounded-full">🔔 Urgente</span>
+                <h2 class="font-brand font-bold text-xl mt-1">Entregas de HOY</h2>
             </div>
-            <div class="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
-              <button type="button" onclick="ajustarStock(${prod.id}, -1)" class="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-800 hover:bg-red-50 hover:text-red-600 active:scale-95 transition-all font-black text-sm">-1</button>
-              <span class="w-8 text-center font-black text-sm text-meridena-dark">${prod.stockActual}</span>
-              <button type="button" onclick="ajustarStock(${prod.id}, 1)" class="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-800 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95 transition-all font-black text-sm">+1</button>
+            <div class="bg-white p-4 rounded-2xl border border-[#D7CCC8] shadow-2xs">
+                <div id="container-entregas-hoy" class="space-y-3"></div>
             </div>
-          </div>
-        `;
-      }).join('');
-    }
+        </div>
 
-    async function ajustarStock(id, cambio) {
-      const prod = catalogoProductos.find(p => Number(p.id) === Number(id));
-      if (prod) {
-        prod.stockActual = Math.max(0, Number(prod.stockActual) + cambio);
-        await guardarEnSupabase(STORE_STOCK, catalogoProductos);
-        renderStockMovil();
-        renderCatalogo();
-      }
-    }
+        <!-- SECCIÓN 3: LISTADO GENERAL -->
+        <div id="view-listado" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+                <h2 class="font-brand font-bold text-base text-slate-800 mb-1">Todos los Pedidos</h2>
+                <p class="text-[11px] text-slate-400 mb-3">Historial completo. Puedes cambiar fechas, editar productos o gestionar cobros.</p>
+                <div id="contenedor-listado-pedidos" class="space-y-3"></div>
+            </div>
+        </div>
 
-    function agregarAlCarrito(productoId, cantidad, textoDetalle) {
-      const idBuscado = Number(productoId);
-      const cantAgregar = Number(cantidad) || 1;
-      const producto = catalogoProductos.find(p => Number(p.id) === idBuscado);
-      if (!producto) return;
+        <!-- SECCIÓN 4: STOCK -->
+        <div id="view-proveedores" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                    <i data-lucide="truck" class="w-4 h-4 text-meridena-sky"></i> Pedido a Proveedores (Reabastecer)
+                </h2>
+                <div class="space-y-2">
+                    <select id="prov-producto-select" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold"></select>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="prov-cantidad" placeholder="Cantidad a sumar" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
+                        <input type="text" id="prov-nombre" placeholder="Nombre Proveedor" class="w-full px-2.5 py-2 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold">
+                    </div>
+                    <button onclick="registrarPedidoProveedor()" class="w-full py-2 bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-xs rounded-xl transition">
+                        + Registrar Pedido & Actualizar Stock
+                    </button>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="box" class="w-4 h-4 text-meridena-sky"></i> Control de Stock (Unidades)
+                    </h2>
+                </div>
+                <div id="contenedor-stock-movil" class="space-y-3"></div>
+            </div>
+        </div>
 
-      const stockDisponible = Number(producto.stockActual || 0);
-      const itemExistente = carritoActual.find(i => Number(i.productoId) === idBuscado);
-      const cantidadActualEnCarrito = itemExistente ? itemExistente.cantidad : 0;
-      const nuevaCantidadTotal = cantidadActualEnCarrito + cantAgregar;
+        <!-- SECCIÓN 5: VENTAS -->
+        <div id="view-ventas" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-600"></i> Historial de Ventas (Jerárquico)
+                    </h2>
+                </div>
+                <div id="contenedor-arbol-ventas" class="space-y-3"></div>
+            </div>
+        </div>
 
-      if (nuevaCantidadTotal > stockDisponible) {
-        alert("No te queda Stock suficiente");
-        return;
-      }
+        <!-- SECCIÓN 6: DEUDORES -->
+        <div id="view-deudores" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="wallet" class="w-4 h-4 text-red-500"></i> Cuentas Corrientes (Deudores)
+                    </h2>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">
+                    <span class="text-[11px] font-bold text-slate-700 block">Registrar Nueva Deuda</span>
+                    <input type="text" id="deudor-nombre" placeholder="Nombre del cliente" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="deudor-monto" placeholder="Monto adeudado ($)" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
+                        <input type="text" id="deudor-concepto" placeholder="Concepto" class="w-full px-2.5 py-1.5 bg-white rounded-lg border border-slate-200 text-xs">
+                    </div>
+                    <button onclick="agregarDeudor()" class="w-full py-2 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-lg transition">
+                        + Registrar Deuda
+                    </button>
+                </div>
+                <div id="contenedor-lista-deudores" class="space-y-2.5 mt-2"></div>
+            </div>
+        </div>
 
-      if (itemExistente) {
-        itemExistente.cantidad = nuevaCantidadTotal;
-        itemExistente.textoDetalle = `${nuevaCantidadTotal} unidades`;
-      } else {
-        carritoActual.push({
-          productoId: idBuscado,
-          nombre: producto.nombre,
-          emoji: producto.emoji || '',
-          cantidad: cantAgregar,
-          precioUnitario: Number(producto.precio),
-          textoDetalle: `${cantAgregar} unidades`
+    </main>
+
+    <!-- BARRA DE NAVEGACIÓN INFERIOR (6 BOTONES) -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg py-1.5 px-1 z-40">
+        <div class="max-w-md mx-auto grid grid-cols-6 gap-0.5 text-center">
+            <button onclick="switchMainTab('tomar')" id="nav-btn-tomar" class="flex flex-col items-center justify-center py-1 text-meridena-sky font-bold text-[8px]">
+                <i data-lucide="plus-circle" class="w-4 h-4 mb-0.5"></i> Pedido
+            </button>
+            <button onclick="switchMainTab('recordatorios')" id="nav-btn-recordatorios" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="bell" class="w-4 h-4 mb-0.5"></i> Hoy
+            </button>
+            <button onclick="switchMainTab('listado')" id="nav-btn-listado" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="list" class="w-4 h-4 mb-0.5"></i> Listado
+            </button>
+            <button onclick="switchMainTab('proveedores')" id="nav-btn-proveedores" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="box" class="w-4 h-4 mb-0.5"></i> Stock
+            </button>
+            <button onclick="switchMainTab('ventas')" id="nav-btn-ventas" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 mb-0.5"></i> Ventas
+            </button>
+            <button onclick="switchMainTab('deudores')" id="nav-btn-deudores" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="wallet" class="w-4 h-4 mb-0.5"></i> Deudas
+            </button>
+        </div>
+    </nav>
+
+    <!-- MODAL GESTIONAR -->
+    <div id="modal-completar" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white p-5 rounded-2xl max-w-sm w-full space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                <h3 class="font-brand font-bold text-base text-slate-900" id="modal-titulo-cliente">Gestión del Pedido</h3>
+                <button onclick="cerrarModalCompletar()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div class="bg-slate-50 p-2.5 rounded-xl flex justify-between items-center">
+                    <span class="text-slate-600 font-semibold">Total del Pedido:</span>
+                    <strong id="modal-total-venta" class="text-lg font-black text-slate-900">$0.00</strong>
+                </div>
+                <div class="bg-amber-50 p-2.5 rounded-xl flex justify-between items-center border border-amber-100">
+                    <span class="text-amber-800 font-bold">Deuda Pendiente Actual:</span>
+                    <strong id="modal-deuda-pendiente" class="text-base font-black text-red-600">$0.00</strong>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Monto que paga hoy ($):</label>
+                    <input type="number" id="modal-input-monto-pagado" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-lg font-black text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+            </div>
+            <div class="space-y-2 pt-2">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">Selecciona qué está pasando:</p>
+                <button onclick="gestionarPedidoAccion('solo-pago')" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
+                    <i data-lucide="wallet" class="w-4 h-4"></i> 💵 REGISTRAR PAGO (Falta entregar)
+                </button>
+                <button onclick="gestionarPedidoAccion('entregar-total')" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
+                    <i data-lucide="check-circle" class="w-4 h-4"></i> ✅ ENTREGAR Y COBRAR (Finalizar venta)
+                </button>
+                <button onclick="cerrarModalCompletar()" class="w-full py-2 text-slate-400 font-bold text-xs hover:text-slate-600"> Cancelar </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script>
+        const SUPABASE_URL = 'https://clfzcabhguqnakiacuuj.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_rO8v9ZwqjfgcXMc5-74yvQ_O4kLQA7j'; 
+        const STORE_STOCK = "stock";
+        const STORE_NAME = "pedidos";
+        const STORE_DEUDORES = "deudores";
+        const STORE_VENTAS = "ventas";
+        
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 📡 Sincronización en tiempo real (Supabase Realtime)
+        db.channel('public:base_completa')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => { cargarDatosDesdeSupabase(); })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => { cargarDatosDesdeSupabase(); })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, () => { cargarDatosDesdeSupabase(); })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'stock' }, () => { cargarDatosDesdeSupabase(); })
+          .subscribe();
+
+        let carritoActual = [];
+        let listaPedidos = [];
+        let listaDeudores = [];
+        let listaVentas = [];
+        let pedidoEnProcesoId = null;
+        let pedidoEnEdicionId = null;
+        
+        let catalogoProductos = [
+            { id: 1, nombre: "Pan Andino", emoji: "🥖", stockActual: 20, precio: 1000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
+            { id: 2, nombre: "Pan de Guayaba", emoji: "🍞", stockActual: 15, precio: 1500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
+            { id: 3, nombre: "Pan de Guayaba con queso", emoji: "🧀", stockActual: 15, precio: 1800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }, { label: "3 Un.", cant: 3, text: "3 unidades" }] },
+            { id: 4, nombre: "Pan de Coco", emoji: "🥥", stockActual: 10, precio: 4000, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
+            { id: 5, nombre: "Pan Salado", emoji: "🥖", stockActual: 12, precio: 3500, unidadesPorPaquete: 5, rapidos: [{ label: "1 Paq. (5u)", cant: 5, text: "1 paquete (5 un.)" }, { label: "2 Paq. (10u)", cant: 10, text: "2 paquetes (10 un.)" }] },
+            { id: 6, nombre: "Quesadillas", emoji: "🥮", stockActual: 20, precio: 1200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "3 Un.", cant: 3, text: "3 unidades" }, { label: "5 Un.", cant: 5, text: "5 unidades" }] },
+            { id: 7, nombre: "Arroz con leche", emoji: "🍚", stockActual: 10, precio: 2000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 8, nombre: "Quesillo Porcion", emoji: "🍮", stockActual: 10, precio: 2200, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 9, nombre: "Quesillo completo", emoji: "🍮", stockActual: 5, precio: 12000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 10, nombre: "Yogurt Natural", emoji: "🥛", stockActual: 12, precio: 2500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 11, nombre: "Yogurt Natural Frutilla", emoji: "🍓", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 12, nombre: "Yogurt Natural Ananá", emoji: "🍍", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 13, nombre: "Yogurt Natural Durazno", emoji: "🍑", stockActual: 12, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
+            { id: 14, nombre: "Yogurt Natural Arándanos", emoji: "🫐", stockActual: 12, precio: 3000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] }
+        ];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+            const inputFecha = document.getElementById('input-fecha-entrega');
+            if (inputFecha) inputFecha.value = getFechaOffset(0);
+            cargarBorradorPedido();
+            cargarDatosDesdeSupabase();
         });
-      }
-      renderCarrito();
-      guardarBorradorPedido();
-    }
 
-    function cambiarCantidadCarrito(index, cambio) {
-      const item = carritoActual[index];
-      if (!item) return;
-      const nuevaCantidad = item.cantidad + cambio;
-
-      if (cambio > 0) {
-        const producto = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-        const stockDisponible = Number(producto ? producto.stockActual : 0);
-        if (producto && nuevaCantidad > stockDisponible) {
-          alert("No te queda Stock suficiente");
-          return;
+        async function guardarEnSupabase(nombreTabla, objetoDatos) {
+            try {
+                const { error } = await db.from(nombreTabla).upsert(objetoDatos, { onConflict: 'id' });
+                if (error) console.error(`Error al guardar en ${nombreTabla}:`, error.message);
+            } catch (err) {
+                console.error("Error de red al guardar:", err);
+            }
         }
-      }
 
-      if (nuevaCantidad <= 0) {
-        carritoActual.splice(index, 1);
-      } else {
-        item.cantidad = nuevaCantidad;
-        item.textoDetalle = `${nuevaCantidad} unidades`;
-      }
-      renderCarrito();
-      guardarBorradorPedido();
-    }
+        async function sincronizarProductoEnSupabase(prod) {
+            try {
+                const { error } = await db.from(STORE_STOCK).upsert({
+                    id: Number(prod.id),
+                    nombre: String(prod.nombre),
+                    emoji: String(prod.emoji),
+                    stockActual: Number(prod.stockActual),
+                    precio: Number(prod.precio)
+                }, { onConflict: 'id' });
+                if (error) console.error(`Error al guardar producto ${prod.id}:`, error.message);
+            } catch (err) {
+                console.error("Error de red al guardar en stock:", err);
+            }
+        }
 
-    function removerDelCarrito(index) {
-      if (!carritoActual[index]) return;
-      carritoActual.splice(index, 1);
-      renderCarrito();
-      guardarBorradorPedido();
-    }
+        // ⭐ CORRECCIÓN 1: CARGA INICIAL ROBUSTA Y AUTO-POBLADO DE STOCK
+        async function cargarDatosDesdeSupabase() {
+            try {
+                const { data: prodData, error: errProd } = await db.from('stock').select('*');
+                if (!errProd && prodData && prodData.length > 0) {
+                    catalogoProductos = catalogoProductos.map(catItem => {
+                        const found = prodData.find(p => Number(p.id) === Number(catItem.id));
+                        return found ? { 
+                            ...catItem, 
+                            precio: Number(found.precio ?? catItem.precio), 
+                            stockActual: Number(found.stockActual ?? found.cantidad ?? catItem.stockActual) 
+                        } : catItem;
+                    });
+                } else {
+                    console.warn("⚠️ La tabla stock está vacía. Poblando catálogo inicial...");
+                    const productosParaInsertar = catalogoProductos.map(p => ({
+                        id: Number(p.id),
+                        nombre: String(p.nombre),
+                        emoji: String(p.emoji || ''),
+                        precio: Number(p.precio),
+                        stockActual: Number(p.stockActual)
+                    }));
+                    await db.from('stock').upsert(productosParaInsertar, { onConflict: 'id' });
+                }
 
-    function limpiarCarritoActual() {
-      carritoActual = [];
-      document.getElementById('input-cliente').value = '';
-      document.getElementById('input-notas').value = '';
-      renderCarrito();
-      localStorage.removeItem('meridena_borrador_pedido');
-    }
+                renderCatalogo();
+                renderStockMovil();
+                renderSelectProveedores();
 
-    function renderCarrito() {
-      const contenedor = document.getElementById('contenedor-carrito');
-      if (!contenedor) return;
-      if (carritoActual.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">Sin productos en el pedido.</p>`;
-        document.getElementById('carrito-total-precio').innerText = "$0.00";
-        return;
-      }
-      let totalPedido = 0;
-      contenedor.innerHTML = carritoActual.map((item, index) => {
-        const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-        const precioU = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
-        const subtotal = precioU * Number(item.cantidad);
-        totalPedido += subtotal;
-        return `
-          <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl text-xs border border-slate-100">
-            <div class="flex flex-col">
-              <span class="font-bold text-slate-900 text-base">${item.emoji || ''} ${item.nombre}</span>
-              <span class="text-xs text-slate-500">${item.cantidad} unidades - <strong class="text-emerald-700 text-base font-black">$${subtotal.toLocaleString()}</strong></span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
-                <button type="button" onclick="cambiarCantidadCarrito(${index}, -1)" class="px-3 py-1.5 bg-slate-100 text-slate-800 hover:bg-red-50 font-black text-base">-</button>
-                <span class="px-3 font-black text-base text-slate-900">${item.cantidad}</span>
-                <button type="button" onclick="cambiarCantidadCarrito(${index}, 1)" class="px-3 py-1.5 bg-slate-100 text-slate-800 hover:bg-emerald-50 font-black text-base">+</button>
-              </div>
-              <button type="button" onclick="removerDelCarrito(${index})" class="text-red-400 font-bold px-2 py-1 text-base hover:text-red-600">✕</button>
-            </div>
-          </div>
-        `;
-      }).join('');
-      document.getElementById('carrito-total-precio').innerText = `$${totalPedido.toLocaleString()}`;
-    }
+                const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
+                if (!errPed && pedData) {
+                    listaPedidos = pedData.map(p => ({
+                        id: p.id,
+                        cliente: p.cliente,
+                        total: Number(p.total || 0),
+                        estado: p.estado || 'pendiente',
+                        montoPagado: Number(p.montoPagado || 0),
+                        stockDescontado: p.stockDescontado || false,
+                        fechaEntrega: p.detalles?.fechaEntrega || '',
+                        notas: p.detalles?.notas || '',
+                        items: p.detalles?.items || [],
+                        horaRegistro: p.detalles?.horaRegistro || ''
+                    }));
+                }
 
-    async function guardarPedido() {
-      const cliente = document.getElementById('input-cliente').value.trim();
-      const fechaEntrega = document.getElementById('input-fecha-entrega').value;
-      const notas = document.getElementById('input-notas').value.trim();
-      if (!cliente) return alert("Ingresa el nombre del cliente.");
-      if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
-      if (!fechaEntrega) return alert("Selecciona la fecha de entrega.");
+                const { data: ventData, error: errVent } = await db.from('ventas').select('*');
+                if (!errVent && ventData) {
+                    listaVentas = ventData.map(v => ({
+                        id: v.id,
+                        cliente: v.cliente,
+                        total: Number(v.total || 0),
+                        metodo_pago: v.metodo_pago,
+                        fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
+                        fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
+                        items: v.detalles_venta?.items || [],
+                        horaRegistro: v.detalles_venta?.horaRegistro || ''
+                    }));
+                    if (typeof renderVentasArbol === 'function') renderVentasArbol();
+                }
 
-      let totalMonto = 0;
-      const itemsConPrecio = carritoActual.map(item => {
-        const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-        const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
-        totalMonto += precio * Number(item.cantidad);
-        return {
-          productoId: Number(item.productoId),
-          nombre: item.nombre,
-          emoji: item.emoji || '',
-          precioUnitario: Number(precio),
-          cantidad: Number(item.cantidad)
-        };
-      });
+                const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
+                if (!errDeu && deuData) {
+                    listaDeudores = deuData.map(d => ({
+                        id: d.id,
+                        cliente: d.cliente,
+                        monto: Number(d.monto || d.montoTotal || d.saldoPendiente || 0),
+                        concepto: d.concepto || 'Deuda'
+                    }));
+                }
 
-      const datosPedidoCompleto = {
-        fechaEntrega: String(fechaEntrega),
-        notas: String(notas || ""),
-        items: itemsConPrecio,
-        horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
+                actualizarTodo();
+            } catch (err) {
+                console.error("Error al cargar datos desde Supabase:", err);
+            }
+        }
 
-      if (pedidoEnEdicionId !== null) {
-        const { error } = await db.from(STORE_NAME)
-          .update({ cliente: String(cliente), detalles: datosPedidoCompleto, total: Number(totalMonto) })
-          .eq('id', Number(pedidoEnEdicionId));
-        if (error) { alert("Error al actualizar: " + error.message); return; }
-        pedidoEnEdicionId = null;
-      } else {
-        const { error } = await db.from(STORE_NAME).insert([{
-          cliente: String(cliente),
-          detalles: datosPedidoCompleto,
-          total: Number(totalMonto),
-          estado: 'pendiente',
-          montoPagado: 0,
-          stockDescontado: false
-        }]);
-        if (error) { alert("Error al guardar: " + error.message); return; }
-      }
+        // ⭐ CORRECCIÓN 2: GUARDAR PRECIO INDIVIDUAL DE FORMA PERMANENTE
+        async function guardarPrecioProducto(productoId) {
+            const input = document.getElementById(`input-precio-${productoId}`);
+            if (!input) return;
+            const nuevoPrecio = parseFloat(input.value);
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
+            
+            if (prod && !isNaN(nuevoPrecio)) {
+                prod.precio = nuevoPrecio;
+                const { error } = await db
+                    .from(STORE_STOCK)
+                    .update({ precio: nuevoPrecio })
+                    .eq('id', Number(productoId));
 
-      limpiarCarritoActual();
-      await cargarDatosDesdeSupabase();
-      switchMainTab('listado');
-      alert("¡Pedido guardado con éxito!");
-    }
+                if (error) {
+                    // Plan B por si la fila no existía
+                    await sincronizarProductoEnSupabase(prod);
+                }
+                
+                alert(`💰 Precio de "${prod.nombre}" actualizado a $${nuevoPrecio} en la nube.`);
+                renderCatalogo();
+                renderStockMovil();
+            }
+        }
 
-    function abrirModalCompletar(id) {
-      pedidoEnProcesoId = Number(id);
-      const pedido = listaPedidos.find(p => Number(p.id) === pedidoEnProcesoId);
-      if (!pedido) return;
-      const totalPedido = Number(pedido.total || 0);
-      const montoYaPagado = Number(pedido.montoPagado || 0);
-      const saldoPendienteReal = Math.max(0, totalPedido - montoYaPagado);
+        function renderCatalogo() {
+            const contenedor = document.getElementById('contenedor-catalogo');
+            if (!contenedor) return;
+            contenedor.innerHTML = catalogoProductos.map(prod => `
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-between space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-3xl">${prod.emoji}</span>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm">${prod.nombre}</h4>
+                                <span class="text-xs text-slate-500 font-semibold">Stock: ${prod.stockActual} u.</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-xs text-slate-400 font-bold">$</span>
+                            <input type="number" id="input-precio-${prod.id}" value="${prod.precio}" class="w-24 px-2 py-1.5 bg-white rounded-lg border border-slate-200 text-base font-black text-emerald-700 text-right">
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                        <button onclick="guardarPrecioProducto(${prod.id})" class="px-2.5 py-1 bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-[10px] rounded-lg transition shadow-2xs">
+                            💾 Modificar Precio
+                        </button>
+                        <div class="flex flex-wrap gap-1">
+                            ${prod.rapidos.map(btn => `
+                                <button onclick="agregarAlCarrito(${prod.id}, ${btn.cant}, '${btn.text}')" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg transition">
+                                    + ${btn.label}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
 
-      document.getElementById('modal-titulo-cliente').innerText = `Gestión: ${pedido.cliente}`;
-      document.getElementById('modal-total-venta').innerText = `$${totalPedido.toLocaleString()}`;
-      document.getElementById('modal-deuda-pendiente').innerText = `$${saldoPendienteReal.toLocaleString()}`;
-      document.getElementById('modal-input-monto-pagado').value = saldoPendienteReal;
-      document.getElementById('modal-completar').classList.remove('hidden');
-    }
+        function renderStockMovil() {
+            const contenedor = document.getElementById('contenedor-stock-movil');
+            if (!contenedor) return;
+            contenedor.innerHTML = catalogoProductos.map(prod => {
+                let infoPaquetes = "";
+                if (prod.unidadesPorPaquete) {
+                    const paquetesTotales = (prod.stockActual / prod.unidadesPorPaquete).toFixed(1);
+                    infoPaquetes = `<span class="text-xs text-amber-700 font-bold block">📦 Equivalente: ${paquetesTotales} paquetes (${prod.unidadesPorPaquete}u c/u)</span>`;
+                }
+                return `
+                    <div class="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-3xl">${prod.emoji}</span>
+                            <div class="flex flex-col">
+                                <span class="font-bold text-sm text-meridena-dark">${prod.nombre}</span>
+                                <span class="text-xs text-slate-500">Stock: <strong class="text-slate-900 text-base font-black">${prod.stockActual} u.</strong></span>
+                                ${infoPaquetes}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                            <button type="button" onclick="ajustarStock(${prod.id}, -1)" class="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-800 hover:bg-red-50 hover:text-red-600 active:scale-95 transition-all font-black text-sm">-1</button>
+                            <span class="w-8 text-center font-black text-sm text-meridena-dark">${prod.stockActual}</span>
+                            <button type="button" onclick="ajustarStock(${prod.id}, 1)" class="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-800 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95 transition-all font-black text-sm">+1</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
 
-    function cerrarModalCompletar() {
-      document.getElementById('modal-completar').classList.add('hidden');
-    }
-
-    async function gestionarPedidoAccion(tipoAccion) {
-        const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
-        if (pedidoIndex === -1) return;
-        const pedido = listaPedidos[pedidoIndex];
-        const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
-        const totalPedido = Number(pedido.total || 0);
-        const montoAnteriorTotal = Number(pedido.montoPagado || 0);
-        const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
-        pedido.montoPagado = nuevoMontoPagadoTotal;
-        const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
-
-        // Descontar stock una sola vez en la nube
-        if (!pedido.stockDescontado) {
-            for (const item of pedido.items) {
-            const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+        async function ajustarStock(id, cambio) {
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(id));
             if (prod) {
-                prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                await sincronizarProductoEnSupabase(prod);
-            }
-            }
-            pedido.stockDescontado = true;
-        }
-
-        // Si queda saldo pendiente, lo guardamos o acumulamos directamente en la tabla 'deudores' de Supabase
-        if (saldoPendienteRestante > 0 && (tipoAccion === 'solo-pago' || tipoAccion === 'entregar-total')) {
-            // Buscamos si ya existe el cliente en la tabla de deudores de Supabase
-            const { data: deudorExistenteArr, error: errBusqueda } = await db.from(STORE_DEUDORES).select('*').ilike('cliente', pedido.cliente);
-            
-            if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
-            const deudorDb = deudorExistenteArr[0];
-            const montoActualBd = Number(deudorDb.montoTotal !== undefined ? deudorDb.montoTotal : deudorDb.monto) || 0;
-            const nuevoMontoTotalDeuda = montoActualBd + saldoPendienteRestante;
-            
-            // Actualizamos el registro existente en la nube
-            await db.from(STORE_DEUDORES).update({ 
-                montoTotal: nuevoMontoTotalDeuda, 
-                concepto: `Acumulado de pedidos (Actualizado)` 
-            }).eq('id', Number(deudorDb.id));
-            } else {
-            // Creamos un nuevo registro de deuda en la nube
-            const nuevoDeudor = {
-                id: Date.now(),
-                cliente: pedido.cliente,
-                montoTotal: saldoPendienteRestante,
-                concepto: `Saldo pendiente pedido #${pedido.id}`,
-                fecha: new Date().toLocaleDateString()
-            };
-            await db.from(STORE_DEUDORES).insert([nuevoDeudor]);
+                prod.stockActual = Math.max(0, Number(prod.stockActual) + cambio);
+                await guardarEnSupabase(STORE_STOCK, catalogoProductos);
+                renderStockMovil();
+                renderCatalogo();
             }
         }
 
-        if (tipoAccion === 'solo-pago') {
-            await db.from(STORE_NAME).update({ montoPagado: nuevoMontoPagadoTotal, stockDescontado: true }).eq('id', Number(pedido.id));
-            alert(`✅ Pago de $${montoIngresado.toLocaleString()} registrado en la nube. Quedan $${saldoPendienteRestante.toLocaleString()} pendientes.`);
-        } else if (tipoAccion === 'entregar-total') {
-            const datosVentaSupabase = {
-            id: Date.now(),
-            cliente: pedido.cliente,
-            detalles_venta: { items: pedido.items, horaRegistro: pedido.horaRegistro || '' },
-            total: Number(totalPedido),
-            metodo_pago: saldoPendienteRestante === 0 ? 'Pagado 100%' : 'Pago parcial / Cuenta corriente'
-            };
-            await db.from(STORE_VENTAS).insert([datosVentaSupabase]);
-            await db.from(STORE_NAME).delete().eq('id', Number(pedido.id));
-            alert(`🎉 ¡Pedido entregado y guardado en historial de ventas!${saldoPendienteRestante > 0 ? ' Se acumuló una deuda de $' + saldoPendienteRestante.toLocaleString() : ''}`);
-        }
-
-        cerrarModalCompletar();
-        await cargarDatosDesdeSupabase();
-        }
-    async function completarPedidoDirecto(id) {
-        if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
-            const idNum = Number(id);
+        function agregarAlCarrito(productoId, cantidad, textoDetalle) {
+            const idBuscado = Number(productoId);
+            const cantAgregar = Number(cantidad) || 1;
+            const producto = catalogoProductos.find(p => Number(p.id) === idBuscado);
+            if (!producto) return;
+            const stockDisponible = Number(producto.stockActual || 0);
+            const itemExistente = carritoActual.find(i => Number(i.productoId) === idBuscado);
+            const cantidadActualEnCarrito = itemExistente ? itemExistente.cantidad : 0;
+            const nuevaCantidadTotal = cantidadActualEnCarrito + cantAgregar;
             
-            // 1. Borramos de la base de datos de Supabase
-            const { error } = await db
-                .from(STORE_NAME)
-                .delete()
-                .eq('id', idNum);
-
-            if (error) {
-                console.error("Error al borrar pedido en Supabase:", error.message);
-                alert("No se pudo borrar de la base de datos: " + error.message);
+            if (nuevaCantidadTotal > stockDisponible) {
+                alert("No te queda Stock suficiente");
                 return;
             }
+            if (itemExistente) {
+                itemExistente.cantidad = nuevaCantidadTotal;
+                itemExistente.textoDetalle = `${nuevaCantidadTotal} unidades`;
+            } else {
+                carritoActual.push({
+                    productoId: idBuscado,
+                    nombre: producto.nombre,
+                    emoji: producto.emoji || '',
+                    cantidad: cantAgregar,
+                    precioUnitario: Number(producto.precio),
+                    textoDetalle: `${cantAgregar} unidades`
+                });
+            }
+            renderCarrito();
+            guardarBorradorPedido();
+        }
 
-            // 2. ⭐ ELIMINAMOS DEL ARREGLO LOCAL EN LA MEMORIA PARA QUE DESAPAREZCA DEL LISTADO AL INSTANTE
-            listaPedidos = listaPedidos.filter(p => Number(p.id) !== idNum);
+        function cambiarCantidadCarrito(index, cambio) {
+            const item = carritoActual[index];
+            if (!item) return;
+            const nuevaCantidad = item.cantidad + cambio;
+            if (cambio > 0) {
+                const producto = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                const stockDisponible = Number(producto ? producto.stockActual : 0);
+                if (producto && nuevaCantidad > stockDisponible) {
+                    alert("No te queda Stock suficiente");
+                    return;
+                }
+            }
+            if (nuevaCantidad <= 0) {
+                carritoActual.splice(index, 1);
+            } else {
+                item.cantidad = nuevaCantidad;
+                item.textoDetalle = `${nuevaCantidad} unidades`;
+            }
+            renderCarrito();
+            guardarBorradorPedido();
+        }
 
-            // 3. Refrescamos todas las vistas de la interfaz (listado, badges de hoy, etc.)
-            if (typeof actualizarTodo === 'function') {
-                actualizarTodo();
-            } else if (typeof renderListadoGeneral === 'function') {
-                renderListadoGeneral();
+        function removerDelCarrito(index) {
+            if (!carritoActual[index]) return;
+            carritoActual.splice(index, 1);
+            renderCarrito();
+            guardarBorradorPedido();
+        }
+
+        function limpiarCarritoActual() {
+            carritoActual = [];
+            document.getElementById('input-cliente').value = '';
+            document.getElementById('input-notas').value = '';
+            renderCarrito();
+            localStorage.removeItem('meridena_borrador_pedido');
+        }
+
+        function renderCarrito() {
+            const contenedor = document.getElementById('contenedor-carrito');
+            if (!contenedor) return;
+            if (carritoActual.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">Sin productos en el pedido.</p>`;
+                document.getElementById('carrito-total-precio').innerText = "$0.00";
+                return;
+            }
+            let totalPedido = 0;
+            contenedor.innerHTML = carritoActual.map((item, index) => {
+                const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                const precioU = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
+                const subtotal = precioU * Number(item.cantidad);
+                totalPedido += subtotal;
+                return `
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl text-xs border border-slate-100">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-900 text-base">${item.emoji || ''} ${item.nombre}</span>
+                            <span class="text-xs text-slate-500">${item.cantidad} unidades - <strong class="text-emerald-700 text-base font-black">$${subtotal.toLocaleString()}</strong></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+                                <button type="button" onclick="cambiarCantidadCarrito(${index}, -1)" class="px-3 py-1.5 bg-slate-100 text-slate-800 hover:bg-red-50 font-black text-base">-</button>
+                                <span class="px-3 font-black text-base text-slate-900">${item.cantidad}</span>
+                                <button type="button" onclick="cambiarCantidadCarrito(${index}, 1)" class="px-3 py-1.5 bg-slate-100 text-slate-800 hover:bg-emerald-50 font-black text-base">+</button>
+                            </div>
+                            <button type="button" onclick="removerDelCarrito(${index})" class="text-red-400 font-bold px-2 py-1 text-base hover:text-red-600">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('carrito-total-precio').innerText = `$${totalPedido.toLocaleString()}`;
+        }
+
+        async function guardarPedido() {
+            const cliente = document.getElementById('input-cliente').value.trim();
+            const fechaEntrega = document.getElementById('input-fecha-entrega').value;
+            const notas = document.getElementById('input-notas').value.trim();
+
+            if (!cliente) return alert("Ingresa el nombre del cliente.");
+            if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
+            if (!fechaEntrega) return alert("Selecciona la fecha de entrega.");
+
+            let totalMonto = 0;
+            const itemsConPrecio = carritoActual.map(item => {
+                const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
+                totalMonto += precio * Number(item.cantidad);
+                return { 
+                    productoId: Number(item.productoId),
+                    nombre: item.nombre,
+                    emoji: item.emoji || '',
+                    precioUnitario: Number(precio), 
+                    cantidad: Number(item.cantidad) 
+                };
+            });
+
+            const datosPedidoCompleto = {
+                fechaEntrega: String(fechaEntrega),
+                notas: String(notas || ""),
+                items: itemsConPrecio,
+                horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            if (pedidoEnEdicionId !== null) {
+                const { error } = await db.from(STORE_NAME)
+                    .update({
+                        cliente: String(cliente),
+                        detalles: datosPedidoCompleto,
+                        total: Number(totalMonto)
+                    })
+                    .eq('id', Number(pedidoEnEdicionId));
+
+                if (error) {
+                    alert("Error al actualizar: " + error.message);
+                    return;
+                }
+                pedidoEnEdicionId = null;
+            } else {
+                const { error } = await db.from(STORE_NAME).insert([{
+                    cliente: String(cliente),
+                    detalles: datosPedidoCompleto,
+                    total: Number(totalMonto),
+                    estado: 'pendiente',
+                    montoPagado: 0,
+                    stockDescontado: false
+                }]);
+
+                if (error) {
+                    alert("Error al guardar: " + error.message);
+                    return;
+                }
             }
 
-            // 4. Sincronizamos por completo con la nube para asegurar consistencia
+            limpiarCarritoActual();
             await cargarDatosDesdeSupabase();
-
-            alert("🗑️ Pedido eliminado correctamente y removido del listado.");
+            switchMainTab('listado');
+            alert("¡Pedido guardado con éxito!");
         }
-    }
 
-    function abrirModalAgregarProductos(id) {
-      const pedido = listaPedidos.find(p => Number(p.id) === Number(id));
-      if (!pedido) return;
-      pedidoEnEdicionId = pedido.id;
-      document.getElementById('input-cliente').value = pedido.cliente;
-      document.getElementById('input-fecha-entrega').value = pedido.fechaEntrega;
-      document.getElementById('input-notas').value = pedido.notas || '';
-      carritoActual = pedido.items.map(item => ({ ...item }));
-      renderCarrito();
-      document.getElementById('btn-cancelar-edicion').classList.remove('hidden');
-      document.getElementById('btn-guardar-pedido').innerText = "ACTUALIZAR PEDIDO";
-      switchMainTab('tomar');
-    }
-
-    function cancelarEdicionPedido() {
-      pedidoEnEdicionId = null;
-      limpiarCarritoActual();
-      document.getElementById('btn-cancelar-edicion').classList.add('hidden');
-      document.getElementById('btn-guardar-pedido').innerText = "GUARDAR PEDIDO";
-    }
-
-    function guardarBorradorPedido() {
-      if (pedidoEnEdicionId !== null) return;
-      const borrador = {
-        cliente: document.getElementById('input-cliente').value,
-        fechaEntrega: document.getElementById('input-fecha-entrega').value,
-        notas: document.getElementById('input-notas').value,
-        carrito: carritoActual
-      };
-      localStorage.setItem('meridena_borrador_pedido', JSON.stringify(borrador));
-    }
-
-    function cargarBorradorPedido() {
-      const guardado = localStorage.getItem('meridena_borrador_pedido');
-      if (guardado) {
-        try {
-          const b = JSON.parse(guardado);
-          if (b.cliente) document.getElementById('input-cliente').value = b.cliente;
-          if (b.fechaEntrega) document.getElementById('input-fecha-entrega').value = b.fechaEntrega;
-          if (b.notas) document.getElementById('input-notas').value = b.notas;
-          if (b.carrito) { carritoActual = b.carrito; renderCarrito(); }
-        } catch (e) { console.error(e); }
-      }
-    }
-
-    function switchMainTab(tabId) {
-      const tabs = ['tomar', 'recordatorios', 'listado', 'proveedores', 'ventas', 'deudores'];
-      tabs.forEach(t => {
-        const el = document.getElementById(`view-${t}`);
-        const btn = document.getElementById(`nav-btn-${t}`);
-        if (el) el.classList.toggle('hidden', t !== tabId);
-        if (btn) {
-          if (t === tabId) {
-            btn.classList.remove('text-slate-400');
-            btn.classList.add('text-meridena-sky');
-          } else {
-            btn.classList.remove('text-meridena-sky');
-            btn.classList.add('text-slate-400');
-          }
+        function abrirModalCompletar(id) {
+            pedidoEnProcesoId = Number(id);
+            const pedido = listaPedidos.find(p => Number(p.id) === pedidoEnProcesoId);
+            if (!pedido) return;
+            const totalPedido = Number(pedido.total || 0);
+            const montoYaPagado = Number(pedido.montoPagado || 0);
+            const saldoPendienteReal = Math.max(0, totalPedido - montoYaPagado);
+            document.getElementById('modal-titulo-cliente').innerText = `Gestión: ${pedido.cliente}`;
+            document.getElementById('modal-total-venta').innerText = `$${totalPedido.toLocaleString()}`;
+            document.getElementById('modal-deuda-pendiente').innerText = `$${saldoPendienteReal.toLocaleString()}`;
+            document.getElementById('modal-input-monto-pagado').value = saldoPendienteReal;
+            document.getElementById('modal-completar').classList.remove('hidden');
         }
-      });
-    }
 
-    function getFechaOffset(dias) {
-      const d = new Date();
-      d.setDate(d.getDate() + dias);
-      return d.toISOString().split('T')[0];
-    }
+        function cerrarModalCompletar() {
+            document.getElementById('modal-completar').classList.add('hidden');
+        }
 
-    function actualizarTodo() {
-      renderListadoGeneral();
-      renderEntregasHoy();
-      renderBadgeHoy();
-      renderDeudores();
-      actualizarSugerenciasClientes();
-    }
+        async function gestionarPedidoAccion(tipoAccion) {
+            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+            if (pedidoIndex === -1) return;
+            const pedido = listaPedidos[pedidoIndex];
+            
+            const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+            const totalPedido = Number(pedido.total || 0);
+            const montoAnteriorTotal = Number(pedido.montoPagado || 0);
+            const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
+            pedido.montoPagado = nuevoMontoPagadoTotal;
+            const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
 
-    function renderBadgeHoy() {
-      const hoy = getFechaOffset(0);
-      const count = listaPedidos.filter(p => p.fechaEntrega === hoy).length;
-      const badge = document.getElementById('badge-entregas-hoy');
-      if (badge) badge.innerText = count;
-    }
+            if (!pedido.stockDescontado) {
+                for (const item of pedido.items) {
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                    if (prod) {
+                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                        await sincronizarProductoEnSupabase(prod);
+                    }
+                }
+                pedido.stockDescontado = true;
+            }
 
-    function renderEntregasHoy() {
-      const contenedor = document.getElementById('container-entregas-hoy');
-      if (!contenedor) return;
-      const hoy = getFechaOffset(0);
-      const entregasHoy = listaPedidos.filter(p => p.fechaEntrega === hoy);
-      if (entregasHoy.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay entregas para hoy.</p>`;
-        return;
-      }
-      contenedor.innerHTML = entregasHoy.map(p => `
-        <div class="p-3 bg-amber-50/50 border border-amber-200 rounded-xl text-xs space-y-1">
-          <div class="flex justify-between font-bold text-amber-900 text-sm">
-            <span>${p.cliente}</span>
-            <span>$${Number(p.total).toLocaleString()}</span>
-          </div>
-          <p class="text-slate-600">${p.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</p>
-        </div>
-      `).join('');
-    }
+            if (saldoPendienteRestante > 0 && (tipoAccion === 'solo-pago' || tipoAccion === 'entregar-total')) {
+                const { data: deudorExistenteArr, error: errBusqueda } = await db.from(STORE_DEUDORES).select('*').ilike('cliente', pedido.cliente);
+                if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
+                    const deudorDb = deudorExistenteArr[0];
+                    const montoActualBd = Number(deudorDb.montoTotal !== undefined ? deudorDb.montoTotal : deudorDb.monto) || 0;
+                    const nuevoMontoTotalDeuda = montoActualBd + saldoPendienteRestante;
+                    await db.from(STORE_DEUDORES).update({
+                        montoTotal: nuevoMontoTotalDeuda,
+                        concepto: `Acumulado de pedidos (Actualizado)`
+                    }).eq('id', Number(deudorDb.id));
+                } else {
+                    const nuevoDeudor = {
+                        id: Date.now(),
+                        cliente: pedido.cliente,
+                        montoTotal: saldoPendienteRestante,
+                        concepto: `Saldo pendiente pedido #${pedido.id}`,
+                        fecha: new Date().toLocaleDateString()
+                    };
+                    await db.from(STORE_DEUDORES).insert([nuevoDeudor]);
+                }
+            }
 
-    function renderListadoGeneral() {
-      const contenedor = document.getElementById('contenedor-listado-pedidos');
-      if (!contenedor) return;
-      if (listaPedidos.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
-        return;
-      }
-      contenedor.innerHTML = listaPedidos.map(p => {
-        const montoPagado = Number(p.montoPagado || 0);
-        const saldoAdeudado = Number(p.total) - montoPagado;
-        return `
-          <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
-            <div>
-              <strong class="text-slate-800">#${p.id} - ${p.cliente}</strong>
-              <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
-              <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
-              <div class="mt-1 font-bold">
-                <span class="text-slate-600">Total: $${Number(p.total).toLocaleString()}</span>
-                ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
-              </div>
-            </div>
-            <div class="flex flex-col gap-1">
-              <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
-              <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
-              <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
+            if (tipoAccion === 'solo-pago') {
+                await db.from(STORE_NAME).update({ montoPagado: nuevoMontoPagadoTotal, stockDescontado: true }).eq('id', Number(pedido.id));
+                alert(`✅ Pago de $${montoIngresado.toLocaleString()} registrado. Quedan $${saldoPendienteRestante.toLocaleString()} pendientes.`);
+            } else if (tipoAccion === 'entregar-total') {
+                const datosVentaSupabase = {
+                    id: Date.now(),
+                    cliente: pedido.cliente,
+                    detalles_venta: { items: pedido.items, horaRegistro: pedido.horaRegistro || '' },
+                    total: Number(totalPedido),
+                    metodo_pago: saldoPendienteRestante === 0 ? 'Pagado 100%' : 'Pago parcial / Cuenta corriente'
+                };
+                await db.from(STORE_VENTAS).insert([datosVentaSupabase]);
+                await db.from(STORE_NAME).delete().eq('id', Number(pedido.id));
+                alert(`🎉 ¡Pedido entregado y guardado en ventas!${saldoPendienteRestante > 0 ? ' Se acumuló una deuda de $' + saldoPendienteRestante.toLocaleString() : ''}`);
+            }
 
-    function actualizarSugerenciasClientes() {
-      const datalist = document.getElementById('sugerencias-clientes');
-      if (!datalist) return;
-      const clientesUnicos = [...new Set(listaPedidos.map(p => p.cliente).filter(Boolean))];
-      datalist.innerHTML = clientesUnicos.map(nombre => `<option value="${nombre}">`).join('');
-    }
+            cerrarModalCompletar();
+            await cargarDatosDesdeSupabase();
+        }
 
-    function renderSelectProveedores() {
-      const select = document.getElementById('prov-producto-select');
-      if (!select) return;
-      select.innerHTML = catalogoProductos.map(p => `<option value="${p.id}">${p.emoji} ${p.nombre} (Stock: ${p.stockActual})</option>`).join('');
-    }
+        // ⭐ CORRECCIÓN 3: ELIMINACIÓN LIMPIA SIN BUCLES DE REINICIO
+        async function completarPedidoDirecto(id) {
+            if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
+                const idNum = Number(id);
+                
+                // Eliminamos localmente al instante para evitar parpadeos
+                listaPedidos = listaPedidos.filter(p => Number(p.id) !== idNum);
+                renderListadoGeneral();
+                renderEntregasHoy();
+                renderBadgeHoy();
 
-    async function registrarPedidoProveedor() {
-      const prodId = parseInt(document.getElementById('prov-producto-select').value);
-      const cantidad = parseInt(document.getElementById('prov-cantidad').value);
-      if (isNaN(cantidad) || cantidad <= 0) return alert("Ingresa una cantidad válida.");
-      const prod = catalogoProductos.find(p => Number(p.id) === prodId);
-      if (prod) {
-        prod.stockActual += cantidad;
-        await guardarEnSupabase(STORE_STOCK, catalogoProductos);
-        document.getElementById('prov-cantidad').value = '';
-        document.getElementById('prov-nombre').value = '';
-        await cargarDatosDesdeSupabase();
-        alert(`¡Stock actualizado! Se sumaron ${cantidad} unidades de ${prod.nombre}.`);
-      }
-    }
+                // Borramos en Supabase
+                const { error } = await db
+                    .from(STORE_NAME)
+                    .delete()
+                    .eq('id', idNum);
 
-    function renderDeudores() {
-      const contenedor = document.getElementById('contenedor-lista-deudores');
-      if (!contenedor) return;
-      if (listaDeudores.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay deudores registrados.</p>`;
-        return;
-      }
-      contenedor.innerHTML = listaDeudores.map(d => `
-        <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
-          <div>
-            <strong class="text-slate-900 text-sm block">${d.cliente}</strong>
-            <span class="text-slate-500">${d.concepto || 'Deuda'} - <strong class="text-red-600 font-black">$${Number(d.monto).toLocaleString()}</strong></span>
-          </div>
-          <button onclick="eliminarDeudor(${d.id})" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1.5 rounded-lg hover:bg-emerald-200">Saldar</button>
-        </div>
-      `).join('');
-    }
+                if (error) {
+                    console.error("Error al borrar en Supabase:", error.message);
+                    alert("No se pudo borrar: " + error.message);
+                    await cargarDatosDesdeSupabase();
+                    return;
+                }
 
-    async function agregarDeudor() {
-      const nombre = document.getElementById('deudor-nombre').value.trim();
-      const monto = parseFloat(document.getElementById('deudor-monto').value);
-      const concepto = document.getElementById('deudor-concepto').value.trim();
-      if (!nombre || isNaN(monto) || monto <= 0) return alert("Ingresa un nombre y monto válido.");
-      
-      listaDeudores.push({
-        id: Date.now(),
-        cliente: nombre,
-        monto: monto,
-        concepto: concepto || 'Deuda manual',
-        fecha: new Date().toLocaleDateString()
-      });
-      await guardarEnSupabase(STORE_DEUDORES, listaDeudores);
-      await cargarDatosDesdeSupabase();
-      document.getElementById('deudor-nombre').value = '';
-      document.getElementById('deudor-monto').value = '';
-      document.getElementById('deudor-concepto').value = '';
-      alert("¡Deuda registrada con éxito!");
-    }
+                alert("🗑️ Pedido eliminado correctamente.");
+            }
+        }
 
-    async function eliminarDeudor(id) {
-      if (confirm("¿Confirmar que la deuda ha sido pagada/saldada?")) {
-        listaDeudores = listaDeudores.filter(d => Number(d.id) !== Number(id));
-        await db.from(STORE_DEUDORES).delete().eq('id', Number(id));
-        renderDeudores();
-      }
-    }
+        function abrirModalAgregarProductos(id) {
+            const pedido = listaPedidos.find(p => Number(p.id) === Number(id));
+            if (!pedido) return;
+            pedidoEnEdicionId = pedido.id;
+            document.getElementById('input-cliente').value = pedido.cliente;
+            document.getElementById('input-fecha-entrega').value = pedido.fechaEntrega;
+            document.getElementById('input-notas').value = pedido.notas || '';
+            carritoActual = pedido.items.map(item => ({ ...item }));
+            renderCarrito();
+            document.getElementById('btn-cancelar-edicion').classList.remove('hidden');
+            document.getElementById('btn-guardar-pedido').innerText = "ACTUALIZAR PEDIDO";
+            switchMainTab('tomar');
+        }
 
-    // VENTAS JERÁRQUICAS
-    function obtenerNumeroSemana(fecha) {
-      const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
-      const diaNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - diaNum);
-      const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
-    }
+        function cancelarEdicionPedido() {
+            pedidoEnEdicionId = null;
+            limpiarCarritoActual();
+            document.getElementById('btn-cancelar-edicion').classList.add('hidden');
+            document.getElementById('btn-guardar-pedido').innerText = "GUARDAR PEDIDO";
+        }
 
-    function obtenerNombreMes(mesNum) {
-      const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-      return meses[mesNum];
-    }
+        function guardarBorradorPedido() {
+            if (pedidoEnEdicionId !== null) return;
+            const borrador = {
+                cliente: document.getElementById('input-cliente').value,
+                fechaEntrega: document.getElementById('input-fecha-entrega').value,
+                notas: document.getElementById('input-notas').value,
+                carrito: carritoActual
+            };
+            localStorage.setItem('meridena_borrador_pedido', JSON.stringify(borrador));
+        }
 
-    function renderVentasArbol() {
-      const contenedor = document.getElementById('contenedor-arbol-ventas');
-      if (!contenedor) return;
-      if (listaVentas.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay ventas registradas.</p>`;
-        return;
-      }
+        function cargarBorradorPedido() {
+            const guardado = localStorage.getItem('meridena_borrador_pedido');
+            if (guardado) {
+                try {
+                    const b = JSON.parse(guardado);
+                    if (b.cliente) document.getElementById('input-cliente').value = b.cliente;
+                    if (b.fechaEntrega) document.getElementById('input-fecha-entrega').value = b.fechaEntrega;
+                    if (b.notas) document.getElementById('input-notas').value = b.notas;
+                    if (b.carrito) { carritoActual = b.carrito; renderCarrito(); }
+                } catch (e) { console.error(e); }
+            }
+        }
 
-      const arbol = {};
-      listaVentas.forEach(v => {
-        const fecha = new Date(v.created_at || v.timestamp || Date.now());
-        const anio = fecha.getFullYear();
-        const mes = fecha.getMonth();
-        const semana = obtenerNumeroSemana(fecha);
-        const diaStr = fecha.toISOString().split('T')[0];
-
-        if (!arbol[anio]) arbol[anio] = {};
-        if (!arbol[anio][mes]) arbol[anio][mes] = {};
-        if (!arbol[anio][mes][semana]) arbol[anio][mes][semana] = {};
-        if (!arbol[anio][mes][semana][diaStr]) arbol[anio][mes][semana][diaStr] = [];
-        arbol[anio][mes][semana][diaStr].push(v);
-      });
-
-      let html = '';
-      Object.keys(arbol).sort((a, b) => b - a).forEach(anio => {
-        html += `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
-          <h3 class="font-bold text-sm text-meridena-dark border-b border-slate-200 pb-1">📅 Año ${anio}</h3>`;
-        Object.keys(arbol[anio]).sort((a, b) => b - a).forEach(mes => {
-          html += `<div class="ml-2 pl-2 border-l-2 border-meridena-sky/40 space-y-2 my-1.5">
-            <h4 class="font-bold text-xs text-meridena-sky uppercase">🗓️ ${obtenerNombreMes(parseInt(mes))}</h4>`;
-          Object.keys(arbol[anio][mes]).sort((a, b) => b - a).forEach(semana => {
-            html += `<div class="ml-2 pl-2 border-l-2 border-amber-300 space-y-1.5 my-1">
-              <span class="text-[11px] font-bold text-amber-800">📌 Semana ${semana}</span>`;
-            Object.keys(arbol[anio][mes][semana]).sort((a, b) => new Date(b) - new Date(a)).forEach(dia => {
-              html += `<div class="ml-2 pl-2 border-l-2 border-slate-300 space-y-1 my-1">
-                <span class="text-[10px] font-bold text-slate-500">📆 Día: ${dia}</span>`;
-              arbol[anio][mes][semana][dia].forEach(v => {
-                html += `
-                  <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-xs shadow-2xs my-1">
-                    <div class="space-y-0.5">
-                      <strong class="text-slate-900 block">${v.cliente}</strong>
-                      <span class="text-slate-500">${(v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</span>
-                      <span class="text-emerald-700 font-black block">$${Number(v.total).toLocaleString()}</span>
-                    </div>
-                    <button onclick="eliminarVenta(${v.id})" class="text-red-400 hover:text-red-600 font-bold p-1 text-base">✕</button>
-                  </div>
-                `;
-              });
-              html += `</div>`;
+        function switchMainTab(tabId) {
+            const tabs = ['tomar', 'recordatorios', 'listado', 'proveedores', 'ventas', 'deudores'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`nav-btn-${t}`);
+                if (el) el.classList.toggle('hidden', t !== tabId);
+                if (btn) {
+                    if (t === tabId) {
+                        btn.classList.remove('text-slate-400');
+                        btn.classList.add('text-meridena-sky');
+                    } else {
+                        btn.classList.remove('text-meridena-sky');
+                        btn.classList.add('text-slate-400');
+                    }
+                }
             });
-            html += `</div>`;
-          });
-          html += `</div>`;
-        });
-        html += `</div>`;
-      });
-      contenedor.innerHTML = html;
-    }
+        }
 
-    async function eliminarVenta(id) {
-      if (confirm("¿Estás seguro de que deseas eliminar esta venta del historial?")) {
-        listaVentas = listaVentas.filter(v => Number(v.id) !== Number(id));
-        await db.from(STORE_VENTAS).delete().eq('id', Number(id));
-        renderVentasArbol();
-      }
-    }
-  </script>
+        function getFechaOffset(dias) {
+            const d = new Date();
+            d.setDate(d.getDate() + dias);
+            return d.toISOString().split('T')[0];
+        }
+
+        function actualizarTodo() {
+            renderListadoGeneral();
+            renderEntregasHoy();
+            renderBadgeHoy();
+            renderDeudores();
+            actualizarSugerenciasClientes();
+        }
+
+        function renderBadgeHoy() {
+            const hoy = getFechaOffset(0);
+            const count = listaPedidos.filter(p => p.fechaEntrega === hoy).length;
+            const badge = document.getElementById('badge-entregas-hoy');
+            if (badge) badge.innerText = count;
+        }
+
+        function renderEntregasHoy() {
+            const contenedor = document.getElementById('container-entregas-hoy');
+            if (!contenedor) return;
+            const hoy = getFechaOffset(0);
+            const entregasHoy = listaPedidos.filter(p => p.fechaEntrega === hoy);
+            if (entregasHoy.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay entregas para hoy.</p>`;
+                return;
+            }
+            contenedor.innerHTML = entregasHoy.map(p => `
+                <div class="p-3 bg-amber-50/50 border border-amber-200 rounded-xl text-xs space-y-1">
+                    <div class="flex justify-between font-bold text-amber-900 text-sm">
+                        <span>${p.cliente}</span>
+                        <span>$${Number(p.total).toLocaleString()}</span>
+                    </div>
+                    <p class="text-slate-600">${p.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderListadoGeneral() {
+            const contenedor = document.getElementById('contenedor-listado-pedidos');
+            if (!contenedor) return;
+            if (listaPedidos.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
+                return;
+            }
+            contenedor.innerHTML = listaPedidos.map(p => {
+                const montoPagado = Number(p.montoPagado || 0);
+                const saldoAdeudado = Number(p.total) - montoPagado;
+                return `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
+                        <div>
+                            <strong class="text-slate-800">#${p.id} - ${p.cliente}</strong>
+                            <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
+                            <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
+                            <div class="mt-1 font-bold">
+                                <span class="text-slate-600">Total: $${Number(p.total).toLocaleString()}</span>
+                                ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
+                            <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
+                            <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function actualizarSugerenciasClientes() {
+            const datalist = document.getElementById('sugerencias-clientes');
+            if (!datalist) return;
+            const clientesUnicos = [...new Set(listaPedidos.map(p => p.cliente).filter(Boolean))];
+            datalist.innerHTML = clientesUnicos.map(nombre => `<option value="${nombre}">`).join('');
+        }
+
+        function renderSelectProveedores() {
+            const select = document.getElementById('prov-producto-select');
+            if (!select) return;
+            select.innerHTML = catalogoProductos.map(p => `<option value="${p.id}">${p.emoji} ${p.nombre} (Stock: ${p.stockActual})</option>`).join('');
+        }
+
+        async function registrarPedidoProveedor() {
+            const prodId = parseInt(document.getElementById('prov-producto-select').value);
+            const cantidad = parseInt(document.getElementById('prov-cantidad').value);
+            if (isNaN(cantidad) || cantidad <= 0) return alert("Ingresa una cantidad válida.");
+            const prod = catalogoProductos.find(p => Number(p.id) === prodId);
+            if (prod) {
+                prod.stockActual += cantidad;
+                await guardarEnSupabase(STORE_STOCK, catalogoProductos);
+                document.getElementById('prov-cantidad').value = '';
+                document.getElementById('prov-nombre').value = '';
+                await cargarDatosDesdeSupabase();
+                alert(`¡Stock actualizado! Se sumaron ${cantidad} unidades de ${prod.nombre}.`);
+            }
+        }
+
+        function renderDeudores() {
+            const contenedor = document.getElementById('contenedor-lista-deudores');
+            if (!contenedor) return;
+            if (listaDeudores.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay deudores registrados.</p>`;
+                return;
+            }
+            contenedor.innerHTML = listaDeudores.map(d => `
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
+                    <div>
+                        <strong class="text-slate-900 text-sm block">${d.cliente}</strong>
+                        <span class="text-slate-500">${d.concepto || 'Deuda'} - <strong class="text-red-600 font-black">$${Number(d.monto).toLocaleString()}</strong></span>
+                    </div>
+                    <button onclick="eliminarDeudor(${d.id})" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1.5 rounded-lg hover:bg-emerald-200">Saldar</button>
+                </div>
+            `).join('');
+        }
+
+        async function agregarDeudor() {
+            const nombre = document.getElementById('deudor-nombre').value.trim();
+            const monto = parseFloat(document.getElementById('deudor-monto').value);
+            const concepto = document.getElementById('deudor-concepto').value.trim();
+            if (!nombre || isNaN(monto) || monto <= 0) return alert("Ingresa un nombre y monto válido.");
+            
+            listaDeudores.push({
+                id: Date.now(),
+                cliente: nombre,
+                monto: monto,
+                concepto: concepto || 'Deuda manual',
+                fecha: new Date().toLocaleDateString()
+            });
+            await guardarEnSupabase(STORE_DEUDORES, listaDeudores);
+            await cargarDatosDesdeSupabase();
+            document.getElementById('deudor-nombre').value = '';
+            document.getElementById('deudor-monto').value = '';
+            document.getElementById('deudor-concepto').value = '';
+            alert("¡Deuda registrada con éxito!");
+        }
+
+        async function eliminarDeudor(id) {
+            if (confirm("¿Confirmar que la deuda ha sido pagada/saldada?")) {
+                listaDeudores = listaDeudores.filter(d => Number(d.id) !== Number(id));
+                await db.from(STORE_DEUDORES).delete().eq('id', Number(id));
+                renderDeudores();
+            }
+        }
+
+        // VENTAS JERÁRQUICAS
+        function obtenerNumeroSemana(fecha) {
+            const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+            const diaNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - diaNum);
+            const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+        }
+
+        function obtenerNombreMes(mesNum) {
+            const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            return meses[mesNum];
+        }
+
+        function renderVentasArbol() {
+            const contenedor = document.getElementById('contenedor-arbol-ventas');
+            if (!contenedor) return;
+            if (listaVentas.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay ventas registradas.</p>`;
+                return;
+            }
+            const arbol = {};
+            listaVentas.forEach(v => {
+                const fecha = new Date(v.created_at || v.timestamp || Date.now());
+                const anio = fecha.getFullYear();
+                const mes = fecha.getMonth();
+                const semana = obtenerNumeroSemana(fecha);
+                const diaStr = fecha.toISOString().split('T')[0];
+                if (!arbol[anio]) arbol[anio] = {};
+                if (!arbol[anio][mes]) arbol[anio][mes] = {};
+                if (!arbol[anio][mes][semana]) arbol[anio][mes][semana] = {};
+                if (!arbol[anio][mes][semana][diaStr]) arbol[anio][mes][semana][diaStr] = [];
+                arbol[anio][mes][semana][diaStr].push(v);
+            });
+
+            let html = '';
+            Object.keys(arbol).sort((a, b) => b - a).forEach(anio => {
+                html += `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+                    <h3 class="font-bold text-sm text-meridena-dark border-b border-slate-200 pb-1">📅 Año ${anio}</h3>`;
+                Object.keys(arbol[anio]).sort((a, b) => b - a).forEach(mes => {
+                    html += `<div class="ml-2 pl-2 border-l-2 border-meridena-sky/40 space-y-2 my-1.5">
+                        <h4 class="font-bold text-xs text-meridena-sky uppercase">🗓️ ${obtenerNombreMes(parseInt(mes))}</h4>`;
+                    Object.keys(arbol[anio][mes]).sort((a, b) => b - a).forEach(semana => {
+                        html += `<div class="ml-2 pl-2 border-l-2 border-amber-300 space-y-1.5 my-1">
+                            <span class="text-[11px] font-bold text-amber-800">📌 Semana ${semana}</span>`;
+                        Object.keys(arbol[anio][mes][semana]).sort((a, b) => new Date(b) - new Date(a)).forEach(dia => {
+                            html += `<div class="ml-2 pl-2 border-l-2 border-slate-300 space-y-1 my-1">
+                                <span class="text-[10px] font-bold text-slate-500">📆 Día: ${dia}</span>`;
+                            arbol[anio][mes][semana][dia].forEach(v => {
+                                html += `
+                                    <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-xs shadow-2xs my-1">
+                                        <div class="space-y-0.5">
+                                            <strong class="text-slate-900 block">${v.cliente}</strong>
+                                            <span class="text-slate-500">${(v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</span>
+                                            <span class="text-emerald-700 font-black block">$${Number(v.total).toLocaleString()}</span>
+                                        </div>
+                                        <button onclick="eliminarVenta(${v.id})" class="text-red-400 hover:text-red-600 font-bold p-1 text-base">✕</button>
+                                    </div>
+                                `;
+                            });
+                            html += `</div>`;
+                        });
+                        html += `</div>`;
+                    });
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            });
+            contenedor.innerHTML = html;
+        }
+
+        async function eliminarVenta(id) {
+            if (confirm("¿Estás seguro de que deseas eliminar esta venta del historial?")) {
+                listaVentas = listaVentas.filter(v => Number(v.id) !== Number(id));
+                await db.from(STORE_VENTAS).delete().eq('id', Number(id));
+                renderVentasArbol();
+            }
+        }
+    </script>
 </body>
 </html>
