@@ -330,93 +330,100 @@
         console.error("Error de red al guardar:", err);
       }
     }
+    async function sincronizarProductoEnSupabase(prod) {
+        try {
+            const { error } = await db.from(STORE_STOCK).upsert({
+            id: Number(prod.id),
+            nombre: String(prod.nombre),
+            emoji: String(prod.emoji),
+            stockActual: Number(prod.stockActual),
+            precio: Number(prod.precio)
+            }, { onConflict: 'id' });
+            
+            if (error) console.error(`Error al guardar producto ${prod.id}:`, error.message);
+        } catch (err) {
+            console.error("Error de red al guardar en stock:", err);
+        }
+    }
 
-    async function cargarDatosDesdeSupabase() {
-      try {
-        // 1. CARGAR STOCK Y PRECIOS
-        const { data: prodData, error: errProd } = await db.from('stock').select('*');
-        if (!errProd && prodData && prodData.length > 0) {
-          catalogoProductos = catalogoProductos.map(cat => {
-            const encontrado = prodData.find(p => Number(p.id) === Number(cat.id));
-            if (encontrado) {
-              return {
-                ...cat,
-                stockActual: encontrado.stockActual !== undefined ? encontrado.stockActual : (encontrado.cantidad !== undefined ? encontrado.cantidad : cat.stockActual),
-                precio: encontrado.precio !== undefined ? Number(encontrado.precio) : cat.precio
-              };
+   async function cargarDatosDesdeSupabase() {
+        try {
+            // 1. CARGAR STOCK Y PRECIOS
+            const { data: prodData, error: errProd } = await db.from('stock').select('*');
+            
+            if (!errProd && prodData && prodData.length > 0) {
+            catalogoProductos = catalogoProductos.map(cat => {
+                const encontrado = prodData.find(p => Number(p.id) === Number(cat.id));
+                if (encontrado) {
+                return {
+                    ...cat,
+                    stockActual: encontrado.stockActual !== undefined ? encontrado.stockActual : (encontrado.cantidad !== undefined ? encontrado.cantidad : cat.stockActual),
+                    precio: encontrado.precio !== undefined ? Number(encontrado.precio) : cat.precio
+                };
+                }
+                return cat;
+            });
+            } else {
+            // Si la tabla 'stock' está totalmente vacía en Supabase, inicializamos los datos por defecto automáticamente
+            for (const prod of catalogoProductos) {
+                await sincronizarProductoEnSupabase(prod);
             }
-            return cat;
-          });
+            }
+
+            renderCatalogo();
+            renderStockMovil();
+            renderSelectProveedores();
+
+            // 2. CARGAR PEDIDOS
+            const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
+            if (!errPed && pedData) {
+            listaPedidos = pedData.map(p => ({
+                id: p.id,
+                cliente: p.cliente,
+                total: p.total,
+                estado: p.estado,
+                fechaEntrega: p.detalles?.fechaEntrega || '',
+                notas: p.detalles?.notas || '',
+                items: p.detalles?.items || [],
+                montoPagado: p.montoPagado || 0,
+                stockDescontado: p.stockDescontado || false,
+                horaRegistro: p.detalles?.horaRegistro || ''
+            }));
+            }
+
+            // 3. CARGAR VENTAS
+            const { data: ventData, error: errVent } = await db.from('ventas').select('*');
+            if (!errVent && ventData) {
+            listaVentas = ventData.map(v => ({
+                id: v.id,
+                cliente: v.cliente,
+                total: v.total,
+                metodo_pago: v.metodo_pago,
+                fecha: v.created_at ? new Date(v.created_at).toLocaleString() : (v.fecha || new Date().toLocaleString()),
+                items: v.detalles_venta?.items || v.items || [],
+                horaRegistro: v.detalles_venta?.horaRegistro || ''
+            }));
+            if (typeof renderVentasArbol === 'function') renderVentasArbol();
+            }
+
+            // 4. CARGAR DEUDORES
+            const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
+            if (!errDeu && deuData) {
+            listaDeudores = deuData.map(d => ({
+                id: d.id,
+                cliente: d.cliente,
+                monto: d.montoTotal !== undefined ? d.montoTotal : (d.monto !== undefined ? d.monto : d.saldoPendiente),
+                concepto: d.concepto || '',
+                fecha: d.fecha || ''
+            }));
+            if (typeof renderDeudores === 'function') renderDeudores();
+            }
+
+            actualizarTodo();
+        } catch (err) {
+            console.error("Error general al cargar datos de Supabase:", err);
         }
-        renderCatalogo();
-        renderStockMovil();
-        renderSelectProveedores();
-
-        // 2. CARGAR PEDIDOS
-        const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
-        if (!errPed && pedData) {
-          listaPedidos = pedData.map(p => ({
-            id: p.id,
-            cliente: p.cliente,
-            total: p.total,
-            estado: p.estado,
-            fechaEntrega: p.detalles?.fechaEntrega || '',
-            notas: p.detalles?.notas || '',
-            items: p.detalles?.items || [],
-            montoPagado: p.montoPagado || 0,
-            stockDescontado: p.stockDescontado || false,
-            horaRegistro: p.detalles?.horaRegistro || ''
-          }));
         }
-
-        // 3. CARGAR VENTAS
-        const { data: ventData, error: errVent } = await db.from('ventas').select('*');
-        if (!errVent && ventData) {
-          listaVentas = ventData.map(v => ({
-            id: v.id,
-            cliente: v.cliente,
-            total: v.total,
-            metodo_pago: v.metodo_pago,
-            fecha: v.created_at ? new Date(v.created_at).toLocaleString() : (v.fecha || new Date().toLocaleString()),
-            items: v.detalles_venta?.items || v.items || [],
-            horaRegistro: v.detalles_venta?.horaRegistro || ''
-          }));
-          if (typeof renderVentasArbol === 'function') renderVentasArbol();
-        }
-
-        // 4. CARGAR DEUDORES
-        const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
-        if (!errDeu && deuData) {
-          listaDeudores = deuData.map(d => ({
-            id: d.id,
-            cliente: d.cliente,
-            monto: d.montoTotal !== undefined ? d.montoTotal : (d.monto !== undefined ? d.monto : d.saldoPendiente),
-            concepto: d.concepto || '',
-            fecha: d.fecha || ''
-          }));
-          if (typeof renderDeudores === 'function') renderDeudores();
-        }
-
-        actualizarTodo();
-      } catch (err) {
-        console.error("Error general al cargar datos de Supabase:", err);
-      }
-    }
-
-    // BOTÓN MODIFICAR PRECIO Y GUARDAR EN LA NUBE
-    async function guardarPrecioProducto(productoId) {
-      const inputEl = document.getElementById(`input-precio-${productoId}`);
-      if (!inputEl) return;
-      const nuevoPrecio = parseFloat(inputEl.value);
-      
-      const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
-      if (prod && !isNaN(nuevoPrecio)) {
-        prod.precio = nuevoPrecio;
-        await guardarEnSupabase(STORE_STOCK, catalogoProductos);
-        alert(`¡Precio de "${prod.nombre}" actualizado a $${nuevoPrecio.toLocaleString()} en la nube! 🚀`);
-        renderCatalogo();
-      }
-    }
 
     function renderCatalogo() {
       const contenedor = document.getElementById('contenedor-catalogo');
@@ -670,74 +677,102 @@
     }
 
     async function gestionarPedidoAccion(tipoAccion) {
-      const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
-      if (pedidoIndex === -1) return;
-      const pedido = listaPedidos[pedidoIndex];
-      const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
-      const totalPedido = Number(pedido.total || 0);
-      const montoAnteriorTotal = Number(pedido.montoPagado || 0);
-      const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
-      pedido.montoPagado = nuevoMontoPagadoTotal;
-      const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
+        const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+        if (pedidoIndex === -1) return;
+        const pedido = listaPedidos[pedidoIndex];
+        const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
+        const totalPedido = Number(pedido.total || 0);
+        const montoAnteriorTotal = Number(pedido.montoPagado || 0);
+        const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
+        pedido.montoPagado = nuevoMontoPagadoTotal;
+        const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
 
-      // Descontar stock una sola vez
-      if (!pedido.stockDescontado) {
-        pedido.items.forEach(item => {
-          const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-          if (prod) {
-            prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-          }
-        });
-        pedido.stockDescontado = true;
-        await guardarEnSupabase(STORE_STOCK, catalogoProductos);
-      }
+        // Descontar stock una sola vez en la nube
+        if (!pedido.stockDescontado) {
+            for (const item of pedido.items) {
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+            if (prod) {
+                prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                await sincronizarProductoEnSupabase(prod);
+            }
+            }
+            pedido.stockDescontado = true;
+        }
 
-      if (tipoAccion === 'solo-pago') {
-        await db.from(STORE_NAME).update({ montoPagado: nuevoMontoPagadoTotal, stockDescontado: true }).eq('id', Number(pedido.id));
-        alert(`✅ Pago de $${montoIngresado.toLocaleString()} registrado. Quedan $${saldoPendienteRestante.toLocaleString()} pendientes.`);
-      } else if (tipoAccion === 'entregar-total') {
-        if (saldoPendienteRestante > 0) {
-          listaDeudores.push({
+        // Si queda saldo pendiente, lo guardamos o acumulamos directamente en la tabla 'deudores' de Supabase
+        if (saldoPendienteRestante > 0 && (tipoAccion === 'solo-pago' || tipoAccion === 'entregar-total')) {
+            // Buscamos si ya existe el cliente en la tabla de deudores de Supabase
+            const { data: deudorExistenteArr, error: errBusqueda } = await db.from(STORE_DEUDORES).select('*').ilike('cliente', pedido.cliente);
+            
+            if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
+            const deudorDb = deudorExistenteArr[0];
+            const montoActualBd = Number(deudorDb.montoTotal !== undefined ? deudorDb.montoTotal : deudorDb.monto) || 0;
+            const nuevoMontoTotalDeuda = montoActualBd + saldoPendienteRestante;
+            
+            // Actualizamos el registro existente en la nube
+            await db.from(STORE_DEUDORES).update({ 
+                montoTotal: nuevoMontoTotalDeuda, 
+                concepto: `Acumulado de pedidos (Actualizado)` 
+            }).eq('id', Number(deudorDb.id));
+            } else {
+            // Creamos un nuevo registro de deuda en la nube
+            const nuevoDeudor = {
+                id: Date.now(),
+                cliente: pedido.cliente,
+                montoTotal: saldoPendienteRestante,
+                concepto: `Saldo pendiente pedido #${pedido.id}`,
+                fecha: new Date().toLocaleDateString()
+            };
+            await db.from(STORE_DEUDORES).insert([nuevoDeudor]);
+            }
+        }
+
+        if (tipoAccion === 'solo-pago') {
+            await db.from(STORE_NAME).update({ montoPagado: nuevoMontoPagadoTotal, stockDescontado: true }).eq('id', Number(pedido.id));
+            alert(`✅ Pago de $${montoIngresado.toLocaleString()} registrado en la nube. Quedan $${saldoPendienteRestante.toLocaleString()} pendientes.`);
+        } else if (tipoAccion === 'entregar-total') {
+            const datosVentaSupabase = {
             id: Date.now(),
             cliente: pedido.cliente,
-            monto: saldoPendienteRestante,
-            concepto: `Saldo pendiente pedido #${pedido.id}`,
-            fecha: new Date().toLocaleDateString()
-          });
-          await guardarEnSupabase(STORE_DEUDORES, listaDeudores);
+            detalles_venta: { items: pedido.items, horaRegistro: pedido.horaRegistro || '' },
+            total: Number(totalPedido),
+            metodo_pago: saldoPendienteRestante === 0 ? 'Pagado 100%' : 'Pago parcial / Cuenta corriente'
+            };
+            await db.from(STORE_VENTAS).insert([datosVentaSupabase]);
+            await db.from(STORE_NAME).delete().eq('id', Number(pedido.id));
+            alert(`🎉 ¡Pedido entregado y guardado en historial de ventas!${saldoPendienteRestante > 0 ? ' Se acumuló una deuda de $' + saldoPendienteRestante.toLocaleString() : ''}`);
         }
 
-        const datosVentaSupabase = {
-          id: Date.now(),
-          cliente: pedido.cliente,
-          detalles_venta: { items: pedido.items, horaRegistro: pedido.horaRegistro || '' },
-          total: Number(totalPedido),
-          metodo_pago: saldoPendienteRestante === 0 ? 'Pagado 100%' : 'Pago parcial / Cuenta corriente'
-        };
-        await db.from(STORE_VENTAS).insert([datosVentaSupabase]);
-        await db.from(STORE_NAME).delete().eq('id', Number(pedido.id));
-        alert(`🎉 ¡Pedido entregado y finalizado!${saldoPendienteRestante > 0 ? ' Se registró una deuda de $' + saldoPendienteRestante.toLocaleString() : ''}`);
-      }
-
-      cerrarModalCompletar();
-      await cargarDatosDesdeSupabase();
-    }
-
+        cerrarModalCompletar();
+        await cargarDatosDesdeSupabase();
+        }
     async function completarPedidoDirecto(id) {
       if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
-        const idNum = Number(id);
-        const pedido = listaPedidos.find(p => Number(p.id) === idNum);
-        if (pedido && !pedido.stockDescontado) {
-          pedido.items.forEach(i => {
-            const prod = catalogoProductos.find(p => Number(p.id) === Number(i.productoId));
-            if (prod) prod.stockActual += Number(i.cantidad);
-          });
-          await guardarEnSupabase(STORE_STOCK, catalogoProductos);
+            const idNum = Number(id);
+            const pedido = listaPedidos.find(p => Number(p.id) === idNum);
+            
+            if (pedido && !pedido.stockDescontado) {
+            for (const i of pedido.items) {
+                const prod = catalogoProductos.find(p => Number(p.id) === Number(i.productoId));
+                if (prod) {
+                prod.stockActual += Number(i.cantidad);
+                await sincronizarProductoEnSupabase(prod);
+                }
+            }
+            }
+            
+            // 1. Eliminar de Supabase
+            const { error } = await db.from('pedidos').delete().eq('id', idNum);
+            if (error) {
+            alert("Error al eliminar: " + error.message);
+            return;
+            }
+
+            // 2. Volver a cargar todos los datos de la nube para refrescar las listas
+            await cargarDatosDesdeSupabase();
+            
+            alert("🗑️ Pedido eliminado correctamente.");
         }
-        await db.from('pedidos').delete().eq('id', idNum);
-        await cargarDatosDesdeSupabase();
-        alert("🗑️ Pedido eliminado correctamente.");
-      }
     }
 
     function abrirModalAgregarProductos(id) {
