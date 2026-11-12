@@ -1084,14 +1084,14 @@
             const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
             if (pedidoIndex === -1) return;
             const pedido = listaPedidos[pedidoIndex];
-
+            
             const montoIngresado = parseFloat(document.getElementById('modal-input-monto-pagado').value) || 0;
             const totalPedido = Number(pedido.total || 0);
             const montoAnterior = Number(pedido.montoPagado || 0);
             const saldoPendienteActual = Math.max(0, totalPedido - montoAnterior);
 
             if (montoIngresado > saldoPendienteActual) {
-                const continuar = confirm(`⚠️ El monto ingresado supera el saldo pendiente real de este pedido ($${saldoPendienteActual.toLocaleString()}). ¿Deseas continuar?`);
+                const continuar = confirm(`⚠️ El monto ingresado supera el saldo pendiente real ($${saldoPendienteActual.toLocaleString()}). ¿Deseas continuar?`);
                 if (!continuar) return;
             }
 
@@ -1099,21 +1099,27 @@
             pedido.montoPagado = totalAbonadoFinal;
             const saldoFinalPedido = totalPedido - totalAbonadoFinal;
 
-            descontarStockSiEsNecesario(pedido);
+            // Descontar stock si no se había hecho
+            if (!pedido.stockDescontado) {
+                pedido.items.forEach(item => {
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                    if (prod) {
+                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                    }
+                });
+                pedido.stockDescontado = true;
+                await guardarEnSupabase(STORE_STOCK, catalogoProductos);
+            }
 
-            // ⭐ ACUMULAR DEUDA EN LA CUENTA CORRIENTE DEL CLIENTE
+            // ⭐ ACUMULAR DEUDA EN DEUDORES SI QUEDA SALDO
             if (saldoFinalPedido > 0) {
-                // Buscamos si el cliente ya tiene una deuda registrada en la lista general
                 const deudorExistente = listaDeudores.find(d => d.cliente.toLowerCase().trim() === pedido.cliente.toLowerCase().trim());
-
                 if (deudorExistente) {
-                    // Si ya existe, le sumamos el nuevo saldo pendiente al total que ya debía
                     deudorExistente.montoTotal = Number(deudorExistente.montoTotal || deudorExistente.saldoPendiente || 0) + saldoFinalPedido;
                     deudorExistente.saldoPendiente = Number(deudorExistente.saldoPendiente || 0) + saldoFinalPedido;
-                    deudorExistente.concepto = `Acumulado (Incluye pedido #${pedido.id})`;
+                    deudorExistente.concepto = `Acumulado (Pedido #${pedido.id})`;
                     deudorExistente.fecha = new Date().toLocaleDateString();
                 } else {
-                    // Si es su primera deuda, la creamos normalmente
                     listaDeudores.push({
                         id: Date.now(),
                         cliente: pedido.cliente,
@@ -1126,9 +1132,21 @@
                 await guardarEnSupabase(STORE_DEUDORES, listaDeudores);
             }
 
-            // Registrar venta definitiva en el historial
-            listaVentas.unshift({ 
+            // ⭐ REGISTRAR VENTA DEFINITIVA EN LA TABLA VENTAS DE SUPABASE
+            // Adaptado a las columnas reales: detalles_venta (jsonb), total (numeric), metodo_pago (text)
+            const datosVentaSupabase = {
                 id: Date.now(),
+                cliente: pedido.cliente,
+                detalles_venta: {
+                    items: pedido.items,
+                    horaRegistro: pedido.horaRegistro || ''
+                },
+                total: Number(totalPedido),
+                metodo_pago: saldoFinalPedido === 0 ? 'Pagado 100%' : 'Pago parcial / Cuenta corriente'
+            };
+
+            listaVentas.unshift({
+                id: datosVentaSupabase.id,
                 timestamp: Date.now(),
                 cliente: pedido.cliente,
                 fecha: new Date().toLocaleDateString() + " " + (pedido.horaRegistro || ''),
@@ -1136,12 +1154,21 @@
                 total: totalPedido,
                 montoPagado: totalAbonadoFinal
             });
-            await guardarEnSupabase(STORE_VENTAS, listaVentas);
+
+            // Insertamos directo en la tabla 'ventas' de Supabase
+            const { error: errVenta } = await db.from(STORE_VENTAS).insert([datosVentaSupabase]);
+            if (errVenta) {
+                console.error("Error al guardar venta en Supabase:", errVenta.message);
+            }
+
             if (typeof renderVentasArbol === 'function') renderVentasArbol();
 
-            // Retirar de pedidos pendientes
+            // ⭐ RETIRAR Y BORRAR EL PEDIDO DE LA TABLA 'pedidos' EN SUPABASE
             listaPedidos.splice(pedidoIndex, 1);
-            await guardarEnSupabase(STORE_NAME, listaPedidos);
+            const { error: errDel } = await db.from(STORE_NAME).delete().eq('id', Number(pedido.id));
+            if (errDel) {
+                console.error("Error al eliminar pedido finalizado de Supabase:", errDel.message);
+            }
 
             alert(`🎉 ¡Pedido finalizado con éxito!${saldoFinalPedido > 0 ? ' Se acumuló la deuda en la cuenta de ' + pedido.cliente : ''}`);
             cerrarModalCompletar();
@@ -1179,6 +1206,40 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        async function completarPedidoDirecto(id) {
+            if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
+                const idNum = Number(id);
+                const pedido = listaPedidos.find(p => Number(p.id) === idNum);
+                
+                if (pedido) {
+                    // Devolvemos el stock al catálogo localmente
+                    pedido.items.forEach(i => {
+                        const prod = catalogoProductos.find(p => Number(p.id) === Number(i.productoId));
+                        if (prod) prod.stockActual += Number(i.cantidad);
+                    });
+                    await guardarEnSupabase(STORE_STOCK, catalogoProductos);
+                }
+
+                // Filtramos localmente para quitarlo de la lista
+                listaPedidos = listaPedidos.filter(p => Number(p.id) !== idNum);
+
+                // ⭐ BORRAMOS DE LA BASE DE DATOS EN SUPABASE
+                const { error } = await db
+                    .from(STORE_NAME)
+                    .delete()
+                    .eq('id', idNum);
+
+                if (error) {
+                    console.error("Error al eliminar pedido en Supabase:", error.message);
+                    alert("No se pudo borrar de la base de datos: " + error.message);
+                    return;
+                }
+
+                actualizarTodo();
+                alert("🗑️ Pedido eliminado correctamente.");
+            }
         }
 
 // 2. REGISTRAR PAGO (Resta correctamente sobre la deuda actual acumulada)
