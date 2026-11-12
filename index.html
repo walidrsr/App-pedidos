@@ -691,17 +691,9 @@
         }
 
        async function guardarPedido() {
-    const inputClienteEl = document.getElementById('input-cliente');
-    const inputFechaEl = document.getElementById('input-fecha-entrega');
-    
-    if (!inputClienteEl || !inputFechaEl) {
-        alert("Error crítico: No se encuentran los elementos del formulario en el HTML.");
-        return;
-    }
-
-    const cliente = inputClienteEl.value.trim();
-    const fechaEntrega = inputFechaEl.value;
-    const notas = document.getElementById('input-notas')?.value.trim() || "";
+    const cliente = document.getElementById('input-cliente').value.trim();
+    const fechaEntrega = document.getElementById('input-fecha-entrega').value;
+    const notas = document.getElementById('input-notas').value.trim();
 
     if (!cliente) return alert("Ingresa el nombre del cliente.");
     if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
@@ -721,49 +713,48 @@
         };
     });
 
+    // Guardamos la información completa dentro de la columna JSON 'detalles'
     const datosPedidoCompleto = {
         fechaEntrega: String(fechaEntrega),
-        notas: String(notas),
+        notas: String(notas || ""),
         items: itemsConPrecio,
-        horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        montoPagado: 0,
+        stockDescontado: false
     };
 
     if (pedidoEnEdicionId !== null) {
-        const { error } = await db.from('pedidos')
-            .update({ cliente: String(cliente), detalles: datosPedidoCompleto, total: Number(totalMonto) })
+        const { error } = await db.from(STORE_NAME)
+            .update({
+                cliente: String(cliente),
+                detalles: datosPedidoCompleto,
+                total: Number(totalMonto)
+            })
             .eq('id', Number(pedidoEnEdicionId));
+
         if (error) {
             alert("Error al actualizar: " + error.message);
             return;
         }
         pedidoEnEdicionId = null;
     } else {
-        const { error } = await db.from('pedidos').insert([{ 
-            cliente: String(cliente), 
-            detalles: datosPedidoCompleto, 
-            total: Number(totalMonto), 
-            estado: 'pendiente', 
-            stockDescontado: false 
+        // ⭐ Estructura exacta basada únicamente en tus columnas reales: id, cliente, detalles, total, estado, created_at
+        const { error } = await db.from(STORE_NAME).insert([{
+            cliente: String(cliente),
+            detalles: datosPedidoCompleto,
+            total: Number(totalMonto),
+            estado: 'pendiente'
         }]);
+
         if (error) {
-            alert("Error al guardar en base de datos: " + error.message);
+            alert("Error al guardar: " + error.message);
             return;
         }
     }
 
-    // 🚀 1. Limpiamos el carrito y el formulario para que quede listo para el siguiente pedido
-    carritoActual = [];
-    inputClienteEl.value = '';
-    if (document.getElementById('input-notas')) document.getElementById('input-notas').value = '';
-    if (typeof actualizarVistaCarrito === 'function') actualizarVistaCarrito();
-
-    // 🔄 2. Forzamos la recarga de los datos en la pantalla de "Listado"
-    if (typeof cargarPedidos === 'function') {
-        cargarPedidos();
-    } else if (typeof obtenerPedidos === 'function') {
-        obtenerPedidos();
-    }
-
+    limpiarCarritoActual();
+    await cargarDatosDesdeSupabase();
+    switchMainTab('listado');
     alert("¡Pedido guardado con éxito!");
 }
 
