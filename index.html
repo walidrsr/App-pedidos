@@ -860,7 +860,7 @@
                             {
                                 cliente: cliente,
                                 detalles: datosPedidoCompleto,
-                                total: totalMonto,
+                                total: Number(totalMonto),
                                 estado: 'pendiente'
                             }
                         ])
@@ -876,18 +876,16 @@
                 }
 
                 // Descontar stock real localmente (y opcionalmente actualizar la tabla stock en Supabase)
-                itemsConPrecio.forEach(async (item) => {
+                for (let item of itemsConPrecio) {
                     const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
                     if (prod) {
                         prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                        
-                        // Opcional: Actualizar el stock en la base de datos de Supabase también
                         await db
                             .from(STORE_STOCK)
                             .update({ cantidad: prod.stockActual })
                             .eq('id', prod.id);
                     }
-                });
+                }
 
                 limpiarCarritoActual();
                 
