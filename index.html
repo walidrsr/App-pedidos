@@ -275,21 +275,15 @@
     <script>
         const SUPABASE_URL = 'https://clfzcabhguqnakiacuuj.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_rO8v9ZwqjfgcXMc5-74yvQ_O4kLQA7j'; 
-        const STORE_STOCK = "stock";
-        const STORE_NAME = "pedidos";
-        const STORE_DEUDORES = "deudores";
-        const STORE_VENTAS = "ventas";
-        
         const { createClient } = supabase;
         const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 📡 Sincronización en tiempo real (Supabase Realtime)
+        // Canal con pequeño retraso para evitar conflictos de lectura simultánea
         db.channel('public:base_completa')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => { cargarDatosDesdeSupabase(); })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'ventas' }, () => { cargarDatosDesdeSupabase(); })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'deudores' }, () => { cargarDatosDesdeSupabase(); })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'stock' }, () => { cargarDatosDesdeSupabase(); })
-          .subscribe();
+        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+            setTimeout(() => { cargarDatosDesdeSupabase(); }, 300);
+        })
+        .subscribe();
 
         let carritoActual = [];
         let listaPedidos = [];
@@ -433,18 +427,17 @@
             if (prod && !isNaN(nuevoPrecio)) {
                 prod.precio = nuevoPrecio;
                 const { error } = await db
-                    .from(STORE_STOCK)
+                    .from('stock')
                     .update({ precio: nuevoPrecio })
                     .eq('id', Number(productoId));
 
                 if (error) {
-                    // Plan B por si la fila no existía
-                    await sincronizarProductoEnSupabase(prod);
+                    console.error("Error al actualizar:", error.message);
+                    alert("No se pudo guardar el precio.");
+                } else {
+                    alert(`💰 Precio actualizado a $${nuevoPrecio} en Supabase.`);
                 }
-                
-                alert(`💰 Precio de "${prod.nombre}" actualizado a $${nuevoPrecio} en la nube.`);
                 renderCatalogo();
-                renderStockMovil();
             }
         }
 
