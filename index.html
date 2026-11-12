@@ -1244,7 +1244,7 @@
                 const pedido = listaPedidos.find(p => Number(p.id) === idNum);
                 
                 if (pedido) {
-                    // Devolvemos el stock al catálogo localmente
+                    // 1. Devolvemos el stock al catálogo localmente si corresponde
                     pedido.items.forEach(i => {
                         const prod = catalogoProductos.find(p => Number(p.id) === Number(i.productoId));
                         if (prod) prod.stockActual += Number(i.cantidad);
@@ -1252,12 +1252,9 @@
                     await guardarEnSupabase(STORE_STOCK, catalogoProductos);
                 }
 
-                // Filtramos localmente para quitarlo de la lista
-                listaPedidos = listaPedidos.filter(p => Number(p.id) !== idNum);
-
-                // ⭐ BORRAMOS DE LA BASE DE DATOS EN SUPABASE
+                // 2. ⭐ BORRAMOS DE LA BASE DE DATOS EN SUPABASE (¡Aquí estaba el faltante!)
                 const { error } = await db
-                    .from(STORE_NAME)
+                    .from('pedidos') // Asegúrate de que use 'pedidos' o STORE_NAME
                     .delete()
                     .eq('id', idNum);
 
@@ -1267,8 +1264,17 @@
                     return;
                 }
 
-                actualizarTodo();
-                alert("🗑️ Pedido eliminado correctamente.");
+                // 3. Filtramos localmente para quitarlo de la pantalla de inmediato
+                listaPedidos = listaPedidos.filter(p => Number(p.id) !== idNum);
+
+                // 4. Refrescamos la interfaz
+                if (typeof actualizarTodo === 'function') {
+                    actualizarTodo();
+                } else if (typeof renderListadoGeneral === 'function') {
+                    renderListadoGeneral();
+                }
+
+                alert("🗑️ Pedido eliminado correctamente de la base de datos y la pantalla.");
             }
         }
 
