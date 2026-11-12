@@ -249,53 +249,41 @@
     </nav>
 
     <!-- MODAL GESTIONAR: 100% CLARO Y DECLARATIVO -->
+<!-- MODAL GESTIONAR -->
 <div id="modal-completar" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white p-5 rounded-2xl max-w-sm w-full space-y-4 shadow-xl">
         <div class="flex justify-between items-center border-b border-slate-100 pb-2">
             <h3 class="font-brand font-bold text-base text-slate-900" id="modal-titulo-cliente">Gestión del Pedido</h3>
             <button onclick="cerrarModalCompletar()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
-        
         <div class="space-y-3 text-xs">
             <!-- Total del Pedido -->
             <div class="bg-slate-50 p-2.5 rounded-xl flex justify-between items-center">
                 <span class="text-slate-600 font-semibold">Total del Pedido:</span>
                 <strong id="modal-total-venta" class="text-lg font-black text-slate-900">$0.00</strong>
             </div>
-                    
             <!-- Deuda Pendiente Actual -->
             <div class="bg-amber-50 p-2.5 rounded-xl flex justify-between items-center border border-amber-100">
                 <span class="text-amber-800 font-bold">Deuda Pendiente Actual:</span>
                 <strong id="modal-deuda-pendiente" class="text-base font-black text-red-600">$0.00</strong>
             </div>
-
             <!-- Input de Monto -->
             <div>
                 <label class="block font-bold text-slate-700 mb-1">Monto que paga hoy ($):</label>
                 <input type="number" id="modal-input-monto-pagado" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-lg font-black text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
             </div>
-            
             <p id="modal-aviso-deuda" class="text-xs text-amber-600 font-medium hidden">⚠️ El cliente quedará debiendo la diferencia en deudores.</p>
         </div>
-
-        <!-- OPCIONES DE ACCIÓN: CLARAS Y SIN TÉRMINOS TÉCNICOS -->
-
+        <!-- OPCIONES DE ACCIÓN -->
         <div class="space-y-2 pt-2">
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">Selecciona qué está pasando:</p>
-
-            <!-- Camino 3 y 4: Dejó seña o pagó una parte, pero NO se lleva el producto todavía (Guarda en stock / Aparta) -->
             <button onclick="gestionarPedidoAccion('solo-pago', false)" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
                 <i data-lucide="wallet" class="w-4 h-4 text-white"></i> 💵 REGISTRAR PAGO (Falta entregar)
             </button>
-            
-            <!-- Camino 1: Entrega y paga el total en el acto -->
             <button onclick="gestionarPedidoAccion('entregar-total', true)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
-                <i data-lucide="check-circle" class="w-4 h-4"></i> ✅ ENTREGAR Y COasassasa (Finalizar venta)
+                <i data-lucide="check-circle" class="w-4 h-4"></i> ✅ ENTREGAR Y COBRAR (Finalizar venta)
             </button>
-
-            <button onclick="cerrarModalCompletar()" class="w-full py-2 text-slate-400 font-bold text-xs hover:text-slate-600">
-                Cancelar
-            </button>
+            <button onclick="cerrarModalCompletar()" class="w-full py-2 text-slate-400 font-bold text-xs hover:text-slate-600"> Cancelar </button>
         </div>
     </div>
 </div>
