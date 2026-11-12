@@ -230,9 +230,6 @@
             <button onclick="switchMainTab('tomar')" id="nav-btn-tomar" class="flex flex-col items-center justify-center py-1 text-meridena-sky font-bold text-[8px]">
                 <i data-lucide="plus-circle" class="w-4 h-4 mb-0.5"></i> Pedido
             </button>
-            <button onclick="switchMainTab('clientes')" id="nav-btn-clientes" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
-                <i data-lucide="users" class="w-4 h-4 mb-0.5"></i> Clientes
-            </button>
             <button onclick="switchMainTab('recordatorios')" id="nav-btn-recordatorios" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
                 <i data-lucide="bell" class="w-4 h-4 mb-0.5"></i> Hoy
             </button>
@@ -434,16 +431,6 @@
                         monto: Number(d.monto || d.montoTotal || d.saldoPendiente || 0),
                         concepto: d.concepto || 'Deuda'
                     }));
-                }
-                // ⭐ 5. Cargar Clientes (NUEVO)
-                const { data: cliData, error: errCli } = await db.from('clientes').select('*');
-                if (!errCli && cliData) {
-                    listaClientes = cliData.map(c => ({
-                        id: c.id,
-                        nombre: c.nombre || 'Sin nombre',
-                        telefono: c.telefono || 'Sin teléfono'
-                    }));
-                    if (typeof renderClientes === 'function') renderClientes();
                 }
 
                 actualizarTodo();
