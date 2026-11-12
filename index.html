@@ -813,132 +813,124 @@
         }
 
         async function gestionarPedidoAccion(tipoAccion) {
-            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
-            if (pedidoIndex === -1) {
-                alert("No se encontró el pedido en proceso.");
-                return;
-            }
-            const pedido = listaPedidos[pedidoIndex];
-            
-            // 1. Obtener y validar el monto ingresado en el modal
-            const inputMontoEl = document.getElementById('modal-input-monto-pagado');
-            const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
+    const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+    if (pedidoIndex === -1) {
+        alert("No se encontró el pedido en proceso.");
+        return;
+    }
+    const pedido = listaPedidos[pedidoIndex];
+    
+    // 1. Obtener y validar el monto ingresado en el modal
+    const inputMontoEl = document.getElementById('modal-input-monto-pagado');
+    const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
 
-            if (tipoAccion === 'solo-pago' && montoIngresado <= 0) {
-                alert("Por favor, ingresa un monto válido para registrar el pago parcial.");
-                return;
-            }
+    if (tipoAccion === 'solo-pago' && montoIngresado <= 0) {
+        alert("Por favor, ingresa un monto válido para registrar el pago.");
+        return;
+    }
 
-            const totalPedido = Number(pedido.total || 0);
-            const montoAnteriorTotal = Number(pedido.montoPagado || 0);
-            const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
-            
-            // Actualizamos temporalmente en memoria
-            pedido.montoPagado = nuevoMontoPagadoTotal;
-            const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
+    const totalPedido = Number(pedido.total || 0);
+    const montoAnteriorTotal = Number(pedido.montoPagado || 0);
+    const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
+    
+    pedido.montoPagado = nuevoMontoPagadoTotal;
+    const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
+    const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
 
-            // 2. Descontar stock si aún no se había hecho (al gestionar por primera vez)
-            if (!pedido.stockDescontado) {
-                for (const item of pedido.items) {
-                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                    if (prod) {
-                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                        await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
-                    }
-                }
-                pedido.stockDescontado = true;
-            }
-
-            // 3. Manejo de Deudores si queda saldo pendiente
-            if (saldoPendienteRestante > 0) {
-                const { data: deudorExistenteArr, error: errBusqueda } = await db.from('deudores').select('*').ilike('cliente', pedido.cliente);
-                
-                if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
-                    const deudorDb = deudorExistenteArr[0];
-                    const montoActualBd = Number(deudorDb.montoTotal !== undefined ? deudorDb.montoTotal : deudorDb.monto) || 0;
-                    // Ajustamos la deuda sumando lo que falta o actualizando el saldo real pendiente
-                    await db.from('deudores').update({
-                        montoTotal: saldoPendienteRestante,
-                        concepto: `Saldo pendiente de pedido #${pedido.id}`
-                    }).eq('id', Number(deudorDb.id));
-                } else {
-                    const nuevoDeudor = {
-                        id: Number(pedido.id),
-                        nombre: pedido.cliente.nombre,
-                        montoDeuda: saldoPendienteRestant,
-                    };
-                    await db.from('deudores').insert([nuevoDeudor]);
-                }
-                
-                alert(`💵 Pago parcial de $${montoIngresado} registrado. Queda un saldo pendiente de $${saldoPendienteRestante}.`);
-            }
-
-            // 4. Si ya pagó el total (o el saldo restante es 0), se mueve a 'ventas' y se borra de 'pedidos'
-            if (saldoPendienteRestante === 0) {
-                const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
-                
-                // Asegurar que el cliente esté en la tabla 'clientes'
-                const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
-                if (!clienteCheck || clienteCheck.length === 0) {
-                    await db.from('clientes').insert([{
-                        nombre: nombreClienteLimpio,
-                        telefono: 'Sin teléfono'
-                    }]);
-                }
-
-                // Registrar la venta en la tabla 'ventas'
-                const datosVentaSupabase = {
-                    id: Number(pedido.id),
-                    detalles_venta: {
-                        cliente: nombreClienteLimpio,
-                        items: pedido.items || [],
-                        horaRegistro: pedido.horaRegistro || ''
-                    },
-                    total: Number(totalPedido),
-                    metodo_pago: 'Pagado 100%',
-                };
-
-                const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
-                if (errVenta) {
-                    console.error("❌ Error al insertar en ventas:", errVenta.message);
-                    alert("Error al guardar la venta: " + errVenta.message);
-                    return;
-                }
-
-                // Borrar el pedido completado de la tabla 'pedidos'
-                const { error: errDel } = await db.from('pedidos').delete().eq('id', Number(pedido.id));
-                if (errDel) {
-                    console.error("Error al borrar el pedido completado:", errDel.message);
-                }
-
-                alert(`🎉 ¡Pago total completado! guardado con éxito.`);
-            } else {
-                // Si solo fue un pago parcial, actualizamos el estado o monto pagado en la tabla 'pedidos' de Supabase
-                const { error: errUpdPedido } = await db.from('pedidos')
-                    .update({ 
-                        montoPagado: Number(pedido.montoPagado),
-                        stockDescontado: true 
-                    })
-                    .eq('id', Number(pedido.id));
-
-                if (errUpdPedido) {
-                    console.error("Error al actualizar el abono en el pedido:", errUpdPedido.message);
-                }
-            }
-
-            // Limpiar el input del modal
-            if (inputMontoEl) inputMontoEl.value = '';
-
-            // Cerrar el modal si existe la función de cierre en tu app
-            const modalGestion = document.getElementById('modal-gestionar-pedido'); // Ajusta el ID de tu modal si es diferente
-            if (modalGestion) modalGestion.classList.add('hidden');
-
-            // Recargar datos y refrescar la interfaz visual de inmediato
-            await cargarDatosDesdeSupabase();
-            if (typeof actualizarTodo === 'function') {
-                actualizarTodo();
+    // 2. Descontar stock si aún no se había hecho
+    if (!pedido.stockDescontado) {
+        for (const item of pedido.items) {
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+            if (prod) {
+                prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
             }
         }
+        pedido.stockDescontado = true;
+    }
+
+    // 3. Si queda saldo pendiente, registrar o actualizar en la tabla 'deudores' (usando 'nombreCliente' y 'montoDeuda')
+    if (saldoPendienteRestante > 0) {
+        const { data: deudorExistenteArr, error: errBusqueda } = await db.from('deudores').select('*').ilike('nombreCliente', nombreClienteLimpio);
+        
+        if (!errBusqueda && deudorExistenteArr && deudorExistenteArr.length > 0) {
+            const deudorDb = deudorExistenteArr[0];
+            const montoActualBd = Number(deudorDb.montoDeuda) || 0;
+            const nuevoMontoTotalDeuda = montoActualBd + saldoPendienteRestante; // O asigna saldoPendienteRestante según tu lógica
+            
+            await db.from('deudores').update({
+                montoDeuda: nuevoMontoTotalDeuda
+            }).eq('id', Number(deudorDb.id));
+        } else {
+            const nuevoDeudor = {
+                id: Number(pedido.id),
+                nombreCliente: nombreClienteLimpio,
+                montoDeuda: saldoPendienteRestante
+            };
+            await db.from('deudores').insert([nuevoDeudor]);
+        }
+        
+        alert(`💵 Pago parcial de $${montoIngresado} registrado. Saldo pendiente guardado en deudores.`);
+    }
+
+    // 4. Si ya pagó el total (saldoPendienteRestante === 0), va a la tabla 'ventas' (usando 'nombreCliente')
+    if (saldoPendienteRestante === 0) {
+        
+        // Aseguramos que el cliente esté en la tabla 'clientes'
+        const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
+        if (!clienteCheck || clienteCheck.length === 0) {
+            await db.from('clientes').insert([{
+                nombre: nombreClienteLimpio,
+                telefono: 'Sin teléfono'
+            }]);
+        }
+
+        // Estructura adaptada a las columnas reales de 'ventas' (id, detalles_venta, total, metodo_pago, nombreCliente)
+        const datosVentaSupabase = {
+            id: Number(pedido.id),
+            detalles_venta: {
+                items: pedido.items || [],
+                horaRegistro: pedido.horaRegistro || ''
+            },
+            total: Number(totalPedido),
+            metodo_pago: 'Pagado 100%',
+            nombreCliente: nombreClienteLimpio,
+        };
+
+        const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
+        if (errVenta) {
+            console.error("❌ Error al insertar en ventas:", errVenta.message);
+            alert("Error al guardar la venta: " + errVenta.message);
+            return;
+        }
+
+        // Borramos el pedido completado de la tabla 'pedidos'
+        const { error: errDel } = await db.from('pedidos').delete().eq('id', Number(pedido.id));
+        if (errDel) {
+            console.error("Error al borrar el pedido completado:", errDel.message);
+        }
+
+        alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada con éxito.`);
+    } else {
+        // Si fue un pago parcial, actualizamos el abono en la tabla 'pedidos'
+        await db.from('pedidos')
+            .update({ 
+                montoPagado: Number(pedido.montoPagado),
+                stockDescontado: true 
+            })
+            .eq('id', Number(pedido.id));
+    }
+
+    // Limpiar modal y actualizar vistas
+    if (inputMontoEl) inputMontoEl.value = '';
+    const modalGestion = document.getElementById('modal-gestionar-pedido');
+    if (modalGestion) modalGestion.classList.add('hidden');
+
+    await cargarDatosDesdeSupabase();
+    if (typeof actualizarTodo === 'function') {
+        actualizarTodo();
+    }
+}
                         
 
         function abrirModalAgregarProductos(id) {
