@@ -37,6 +37,9 @@
                 }
             }
         }
+    
+
+
     </script>
     <style>
         body { background-color: #FDFBF7; color: #3E2723; padding-bottom: 70px; }
@@ -287,7 +290,11 @@
             
             <!-- Camino 1: Entrega y paga el total en el acto -->
             <button onclick="gestionarPedidoAccion('entregar-total', true)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
+<<<<<<< HEAD
                 <i data-lucide="check-circle" class="w-4 h-4"></i> ✅ ENTREGAR Y COasassasa (Finalizar venta)
+=======
+                <i data-lucide="check-circle" class="w-4 h-4"></i> ✅ ENTREGAR Y COBRAR (Finalizar aSAventa)
+>>>>>>> 3d17d10 (Lprobando web)
             </button>
 
             <button onclick="cerrarModalCompletar()" class="w-full py-2 text-slate-400 font-bold text-xs hover:text-slate-600">
@@ -307,6 +314,28 @@
     const STORE_VENTAS = "ventas";    
     const { createClient } = supabase;
     const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    async function sincronizarCambiosEnVivo() {
+    // Aquí llamas a las funciones que ya tengas en tu app para refrescar la pantalla, por ejemplo:
+            if (typeof cargarPedidos === 'function') {
+                cargarPedidos();
+            }
+            if (typeof renderCatalogo === 'function') {
+                renderCatalogo();
+            }
+            console.log("🔄 Pantalla actualizada por cambios en otro dispositivo.");
+        }
+
+        // 2. Suscribirse a los eventos de la tabla 'pedidos' (STORE_NAME)
+        db.channel('public:pedidos_sincro')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: STORE_NAME }, // Escucha INSERT, UPDATE y DELETE
+            (payload) => {
+            console.log('🔔 ¡Cambio detectado desde otro dispositivo!', payload);
+            sincronizarCambiosEnVivo();
+            }
+        )
+        .subscribe();
 
         let contadorId = 101;
         let carritoActual = [];
@@ -782,94 +811,112 @@
         }
 
         async function guardarPedido() {
-            const cliente = document.getElementById('input-cliente').value.trim();
-            const fechaEntrega = document.getElementById('input-fecha-entrega').value;
-            const notas = document.getElementById('input-notas').value.trim();
+                const cliente = document.getElementById('input-cliente').value.trim();
+                const fechaEntrega = document.getElementById('input-fecha-entrega').value;
+                const notas = document.getElementById('input-notas').value.trim();
 
-            if (!cliente) return alert("Ingresa el nombre del cliente.");
-            if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
-            if (!fechaEntrega) return alert("Selecciona la fecha.");
+                if (!cliente) return alert("Ingresa el nombre del cliente.");
+                if (!carritoActual || carritoActual.length === 0) return alert("Agrega al menos un producto.");
+                if (!fechaEntrega) return alert("Selecciona la fecha.");
 
-            // 🛑 VALIDACIÓN DE STOCK ESTRICTA
-            for (let item of carritoActual) {
-                const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                if (prod && Number(item.cantidad) > Number(prod.stockActual)) {
-                    alert("No te queda Stock");
-                    return; // Detiene el guardado y mantiene tu catálogo intacto
-                }
-            }
-
-            let totalMonto = 0;
-            const itemsConPrecio = carritoActual.map(item => {
-                const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
-                totalMonto += precio * Number(item.cantidad);
-                return { ...item, precioUnitario: precio, cantidad: Number(item.cantidad) };
-            });
-
-            if (pedidoEnEdicionId !== null) {
-                const pedidoViejo = listaPedidos.find(p => Number(p.id) === Number(pedidoEnEdicionId));
-                if (pedidoViejo) {
-                    pedidoViejo.items.forEach(oldItem => {
-                        const prod = catalogoProductos.find(p => Number(p.id) === Number(oldItem.productoId));
-                        if (prod) prod.stockActual = Number(prod.stockActual) + Number(oldItem.cantidad);
-                    });
+                // 🛑 VALIDACIÓN DE STOCK ESTRICTA
+                for (let item of carritoActual) {
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                    if (prod && Number(item.cantidad) > Number(prod.stockActual)) {
+                        alert("No te queda Stock");
+                        return;
+                    }
                 }
 
-                const index = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnEdicionId));
-                if (index !== -1) {
-                    listaPedidos[index] = {
-                        ...listaPedidos[index],
-                        cliente,
-                        fechaEntrega,
-                        notas,
-                        items: itemsConPrecio,
-                        total: totalMonto
-                    };
-                }
-                pedidoEnEdicionId = null;
-                const btnCancelar = document.getElementById('btn-cancelar-edicion');
-                if (btnCancelar) btnCancelar.classList.add('hidden');
-                const btnGuardar = document.getElementById('btn-guardar-pedido');
-                if (btnGuardar) btnGuardar.innerText = "GUARDAR PEDIDO";
-            } else {
-                listaPedidos.push({
-                    id: Number(contadorId++),
-                    cliente,
+                let totalMonto = 0;
+                const itemsConPrecio = carritoActual.map(item => {
+                    const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                    const precio = prodCat ? Number(prodCat.precio) : Number(item.precioUnitario || 0);
+                    totalMonto += precio * Number(item.cantidad);
+                    return { ...item, precioUnitario: precio, cantidad: Number(item.cantidad) };
+                });
+
+                // Empaquetamos toda la información extra en un objeto JSON para guardarla en la columna 'detalles'
+                const datosPedidoCompleto = {
                     fechaEntrega,
                     notas,
                     items: itemsConPrecio,
-                    total: totalMonto,
-                    montoPagado: 0,
-                    pagadoAdelantado: false,
                     horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                });
-            }
+                };
 
-            // Descontar stock real
-            itemsConPrecio.forEach(item => {
-                const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                if (prod) {
-                    prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                if (pedidoEnEdicionId !== null) {
+                    // --- CASO: EDITAR PEDIDO ---
+                    // (Aquí recuperarías la lógica local y harías un update en Supabase usando el ID)
+                    const { error } = await db
+                        .from(STORE_NAME)
+                        .update({
+                            cliente: cliente,
+                            detalles: datosPedidoCompleto,
+                            total: totalMonto
+                        })
+                        .eq('id', pedidoEnEdicionId);
+
+                    if (error) {
+                        console.error("Error al actualizar pedido:", error);
+                        alert("Hubo un error al actualizar el pedido.");
+                        return;
+                    }
+
+                    pedidoEnEdicionId = null;
+                    const btnCancelar = document.getElementById('btn-cancelar-edicion');
+                    if (btnCancelar) btnCancelar.classList.add('hidden');
+                    const btnGuardar = document.getElementById('btn-guardar-pedido');
+                    if (btnGuardar) btnGuardar.innerText = "GUARDAR PEDIDO";
+
+                } else {
+                    // --- CASO: NUEVO PEDIDO ---
+                    const { data, error } = await db
+                        .from(STORE_NAME)
+                        .insert([
+                            {
+                                cliente: cliente,
+                                detalles: datosPedidoCompleto,
+                                total: totalMonto,
+                                estado: 'pendiente'
+                            }
+                        ])
+                        .select();
+
+                    if (error) {
+                        console.error("Error al guardar en Supabase:", error);
+                        alert("Hubo un error al guardar el pedido en la base de datos.");
+                        return;
+                    }
+
+                    console.log("Pedido guardado con éxito en Supabase:", data);
                 }
-            });
 
-            // Guardar cambios en Supabase de forma asíncrona
-            await guardarEnSupabase(STORE_NAME, listaPedidos);
-            await guardarEnSupabase(STORE_STOCK, catalogoProductos);
+                // Descontar stock real localmente (y opcionalmente actualizar la tabla stock en Supabase)
+                itemsConPrecio.forEach(async (item) => {
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                    if (prod) {
+                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                        
+                        // Opcional: Actualizar el stock en la base de datos de Supabase también
+                        await db
+                            .from(STORE_STOCK)
+                            .update({ cantidad: prod.stockActual })
+                            .eq('id', prod.id);
+                    }
+                });
 
-            limpiarCarritoActual();
-            
-            // FORZAR ACTUALIZACIÓN VISUAL INMEDIATA EN PANTALLA
-            renderCatalogo();
-            renderStockMovil();
+                limpiarCarritoActual();
+                
+                // FORZAR ACTUALIZACIÓN VISUAL INMEDIATA EN PANTALLA
+                renderCatalogo();
+                renderStockMovil();
 
-            if (typeof actualizarTodo === 'function') {
-                actualizarTodo();
-            }
+                if (typeof actualizarTodo === 'function') {
+                    actualizarTodo();
+                }
 
-            switchMainTab('listado');
-            alert("¡Pedido guardado con éxito!");
+                switchMainTab('listado');
+                alert("¡Pedido guardado con éxito!");
         }
 
         function renderListadoPedidos() {
@@ -1398,5 +1445,15 @@
             }
         }
     </script>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const netlifyBadge = document.querySelector('iframe[src*="netlify"], a[href*="netlify.com"]');
+            if (netlifyBadge) {
+                const parentContainer = netlifyBadge.closest('iframe') || netlifyBadge;
+                parentContainer.remove();
+            }
+        });
+    </script>
+
 </body>
 </html>
