@@ -754,31 +754,35 @@
         await cargarDatosDesdeSupabase();
         }
     async function completarPedidoDirecto(id) {
-      if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
+        if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
             const idNum = Number(id);
-            const pedido = listaPedidos.find(p => Number(p.id) === idNum);
             
-            if (pedido && !pedido.stockDescontado) {
-            for (const i of pedido.items) {
-                const prod = catalogoProductos.find(p => Number(p.id) === Number(i.productoId));
-                if (prod) {
-                prod.stockActual += Number(i.cantidad);
-                await sincronizarProductoEnSupabase(prod);
-                }
-            }
-            }
-            
-            // 1. Eliminar de Supabase
-            const { error } = await db.from('pedidos').delete().eq('id', idNum);
+            // 1. Borramos de la base de datos de Supabase
+            const { error } = await db
+                .from(STORE_NAME)
+                .delete()
+                .eq('id', idNum);
+
             if (error) {
-            alert("Error al eliminar: " + error.message);
-            return;
+                console.error("Error al borrar pedido en Supabase:", error.message);
+                alert("No se pudo borrar de la base de datos: " + error.message);
+                return;
             }
 
-            // 2. Volver a cargar todos los datos de la nube para refrescar las listas
+            // 2. ⭐ ELIMINAMOS DEL ARREGLO LOCAL EN LA MEMORIA PARA QUE DESAPAREZCA DEL LISTADO AL INSTANTE
+            listaPedidos = listaPedidos.filter(p => Number(p.id) !== idNum);
+
+            // 3. Refrescamos todas las vistas de la interfaz (listado, badges de hoy, etc.)
+            if (typeof actualizarTodo === 'function') {
+                actualizarTodo();
+            } else if (typeof renderListadoGeneral === 'function') {
+                renderListadoGeneral();
+            }
+
+            // 4. Sincronizamos por completo con la nube para asegurar consistencia
             await cargarDatosDesdeSupabase();
-            
-            alert("🗑️ Pedido eliminado correctamente.");
+
+            alert("🗑️ Pedido eliminado correctamente y removido del listado.");
         }
     }
 
