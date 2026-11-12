@@ -210,14 +210,28 @@
                 <div id="contenedor-lista-deudores" class="space-y-2.5 mt-2"></div>
             </div>
         </div>
-
+        <!-- SECCIÓN 7: CLIENTES REGISTRADOS -->
+        <div id="view-clientes" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                        <i data-lucide="users" class="w-4 h-4 text-meridena-sky"></i> Directorio de Clientes
+                    </h2>
+                </div>
+                <div id="contenedor-lista-clientes" class="space-y-2.5"></div>
+            </div>
+        </div>
     </main>
+    
 
     <!-- BARRA DE NAVEGACIÓN INFERIOR (6 BOTONES) -->
     <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg py-1.5 px-1 z-40">
         <div class="max-w-md mx-auto grid grid-cols-6 gap-0.5 text-center">
             <button onclick="switchMainTab('tomar')" id="nav-btn-tomar" class="flex flex-col items-center justify-center py-1 text-meridena-sky font-bold text-[8px]">
                 <i data-lucide="plus-circle" class="w-4 h-4 mb-0.5"></i> Pedido
+            </button>
+            <button onclick="switchMainTab('clientes')" id="nav-btn-clientes" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
+                <i data-lucide="users" class="w-4 h-4 mb-0.5"></i> Clientes
             </button>
             <button onclick="switchMainTab('recordatorios')" id="nav-btn-recordatorios" class="flex flex-col items-center justify-center py-1 text-slate-400 font-bold text-[8px]">
                 <i data-lucide="bell" class="w-4 h-4 mb-0.5"></i> Hoy
@@ -277,6 +291,8 @@
         const SUPABASE_ANON_KEY = 'sb_publishable_rO8v9ZwqjfgcXMc5-74yvQ_O4kLQA7j'; 
         const { createClient } = supabase;
         const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const STORE_CLIENTES = "clientes";
+
 
         // Canal con pequeño retraso para evitar conflictos de lectura simultánea
         db.channel('public:base_completa')
@@ -289,6 +305,7 @@
         let listaPedidos = [];
         let listaDeudores = [];
         let listaVentas = [];
+        let listaClientes = [];
         let pedidoEnProcesoId = null;
         let pedidoEnEdicionId = null;
         
@@ -418,6 +435,16 @@
                         concepto: d.concepto || 'Deuda'
                     }));
                 }
+                // ⭐ 5. Cargar Clientes (NUEVO)
+                const { data: cliData, error: errCli } = await db.from('clientes').select('*');
+                if (!errCli && cliData) {
+                    listaClientes = cliData.map(c => ({
+                        id: c.id,
+                        nombre: c.nombre || 'Sin nombre',
+                        telefono: c.telefono || 'Sin teléfono'
+                    }));
+                    if (typeof renderClientes === 'function') renderClientes();
+                }
 
                 actualizarTodo();
                 console.log("✅ Datos y stock cargados correctamente desde Supabase.");
@@ -453,6 +480,24 @@
                     renderCatalogo();
                     renderStockMovil();
                 }
+        }
+
+        function renderClientes() {
+            const contenedor = document.getElementById('contenedor-lista-clientes');
+            if (!contenedor) return;
+            if (listaClientes.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay clientes registrados aún.</p>`;
+                return;
+            }
+            contenedor.innerHTML = listaClientes.map(c => `
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
+                    <div>
+                        <strong class="text-slate-900 text-sm block">👤 ${c.nombre}</strong>
+                        <span class="text-slate-500">📞 ${c.telefono}</span>
+                    </div>
+                    <span class="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-1 rounded-lg">Registrado</span>
+                </div>
+            `).join('');
         }
 
         function renderCatalogo() {
@@ -521,8 +566,23 @@
         async function ajustarStock(id, cambio) {
             const prod = catalogoProductos.find(p => Number(p.id) === Number(id));
             if (prod) {
+                // 1. Modificamos el valor localmente
                 prod.stockActual = Math.max(0, Number(prod.stockActual) + cambio);
-                await guardarEnSupabase(STORE_STOCK, catalogoProductos);
+
+                // 2. ⭐ Actualizamos directamente la columna 'cantidad' en la tabla 'stock' de Supabase
+                const { error } = await db
+                    .from('stock')
+                    .update({ cantidad: Number(prod.stockActual) })
+                    .eq('id', Number(id));
+
+                if (error) {
+                    console.error("Error al actualizar el stock en Supabase:", error.message);
+                    alert("No se pudo guardar el stock en la nube: " + error.message);
+                } else {
+                    console.log(`📦 Stock del producto #${id} actualizado a ${prod.stockActual} en Supabase.`);
+                }
+
+                // 3. Refrescamos la interfaz visual
                 renderStockMovil();
                 renderCatalogo();
             }
@@ -779,31 +839,30 @@
             await cargarDatosDesdeSupabase();
         }
 
-        // ⭐ CORRECCIÓN 3: ELIMINACIÓN LIMPIA SIN BUCLES DE REINICIO
         async function completarPedidoDirecto(id) {
-            if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
+            if (confirm("¿Estás seguro de que deseas eliminar este pedido permanentemente?")) {
                 const idNum = Number(id);
                 
-                // Eliminamos localmente al instante para evitar parpadeos
-                listaPedidos = listaPedidos.filter(p => Number(p.id) !== idNum);
-                renderListadoGeneral();
-                renderEntregasHoy();
-                renderBadgeHoy();
-
-                // Borramos en Supabase
+                // 1. 🗑️ Borramos el registro físicamente de la tabla 'pedidos' en Supabase
                 const { error } = await db
-                    .from(STORE_NAME)
+                    .from('pedidos')
                     .delete()
                     .eq('id', idNum);
 
                 if (error) {
-                    console.error("Error al borrar en Supabase:", error.message);
-                    alert("No se pudo borrar: " + error.message);
-                    await cargarDatosDesdeSupabase();
+                    console.error("Error al borrar pedido en Supabase:", error.message);
+                    alert("No se pudo borrar de la base de datos: " + error.message);
                     return;
                 }
 
-                alert("🗑️ Pedido eliminado correctamente.");
+                // 2. ⚡ Removemos el pedido de la lista local para que desaparezca de la pantalla al instante
+                listaPedidos = listaPedidos.filter(p => Number(p.id) !== idNum);
+
+                // 3. 🔄 Refrescamos todas las vistas de la interfaz
+                actualizarTodo();
+
+                console.log(`🗑️ Pedido #${idNum} eliminado por completo de Supabase y de la interfaz.`);
+                alert("🗑️ Pedido eliminado correctamente de la base de datos y de la pantalla.");
             }
         }
 
