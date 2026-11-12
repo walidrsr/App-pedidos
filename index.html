@@ -890,10 +890,20 @@
                     alert("Error al actualizar: " + error.message);
                     return;
                 }
+
+                // Actualizar también en el arreglo local
+                const pLocal = listaPedidos.find(p => Number(p.id) === Number(pedidoEnEdicionId));
+                if (pLocal) {
+                    pLocal.cliente = cliente;
+                    pLocal.total = totalMonto;
+                    pLocal.fechaEntrega = fechaEntrega;
+                    pLocal.notas = notas;
+                    pLocal.items = itemsConPrecio;
+                }
                 pedidoEnEdicionId = null;
+
             } else {
                 // --- INSERTAR NUEVO PEDIDO ---
-                // Nota: Omitimos el 'id' para que Supabase lo autogenere automáticamente en la columna int4
                 const { data, error } = await db
                     .from(STORE_NAME)
                     .insert([
@@ -911,7 +921,21 @@
                     alert("Error al guardar en Supabase: " + error.message);
                     return;
                 }
-                console.log("Guardado exitoso:", data);
+
+                // ⭐ AGREGAR EL NUEVO PEDIDO AL ARREGLO LOCAL DE INMEDIATO
+                if (data && data.length > 0) {
+                    const nuevoReg = data[0];
+                    listaPedidos.unshift({
+                        id: nuevoReg.id,
+                        cliente: nuevoReg.cliente,
+                        total: nuevoReg.total,
+                        estado: nuevoReg.estado,
+                        fechaEntrega: nuevoReg.detalles?.fechaEntrega || fechaEntrega,
+                        notas: nuevoReg.detalles?.notas || notas,
+                        items: nuevoReg.detalles?.items || itemsConPrecio,
+                        horaRegistro: nuevoReg.detalles?.horaRegistro || ''
+                    });
+                }
             }
 
             // Descontar stock localmente y actualizar Supabase
@@ -930,35 +954,15 @@
             renderCatalogo();
             renderStockMovil();
             
-            // ⭐ LLAMAMOS AL RENDERIZADOR DEL LISTADO AQUÍ MISMO
-            if (typeof renderListadoGeneral === 'function') {
-                renderListadoGeneral();
-            }
+            // Refrescar vistas en pantalla
             if (typeof actualizarTodo === 'function') {
                 actualizarTodo();
+            } else if (typeof renderListadoGeneral === 'function') {
+                renderListadoGeneral();
             }
 
             switchMainTab('listado');
             alert("¡Pedido guardado con éxito!");
-        }
-        
-
-        async function eliminarPedido(id) {
-            if (confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
-                const pedido = listaPedidos.find(p => p.id === id);
-                if (pedido) {
-                    pedido.items.forEach(i => {
-                        const prod = catalogoProductos.find(p => p.id === i.productoId);
-                        if (prod) prod.stockActual += i.cantidad;
-                    });
-                    await guardarEnSupabase(STORE_STOCK, catalogoProductos);
-                    renderStockMovil();
-                    renderCatalogo();
-                }
-                listaPedidos = listaPedidos.filter(p => p.id !== id);
-                await guardarEnSupabase(STORE_STOCK, catalogoProductos);
-                actualizarTodo();
-            }
         }
 
         function activarEdicionCliente(id) {
