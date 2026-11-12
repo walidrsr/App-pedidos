@@ -728,29 +728,44 @@
         horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-   if (pedidoEnEdicionId !== null) {
-    const { error } = await db.from('pedidos') // 👈 Cámbialo aquí
-        .update({ cliente: String(cliente), detalles: datosPedidoCompleto, total: Number(totalMonto) })
-        .eq('id', Number(pedidoEnEdicionId));
-    if (error) {
-        alert("Error al actualizar: " + error.message);
-        return;
+    if (pedidoEnEdicionId !== null) {
+        const { error } = await db.from('pedidos')
+            .update({ cliente: String(cliente), detalles: datosPedidoCompleto, total: Number(totalMonto) })
+            .eq('id', Number(pedidoEnEdicionId));
+        if (error) {
+            alert("Error al actualizar: " + error.message);
+            return;
+        }
+        pedidoEnEdicionId = null;
+    } else {
+        const { error } = await db.from('pedidos').insert([{ 
+            cliente: String(cliente), 
+            detalles: datosPedidoCompleto, 
+            total: Number(totalMonto), 
+            estado: 'pendiente', 
+            montoPagado: 0, 
+            stockDescontado: false 
+        }]);
+        if (error) {
+            alert("Error al guardar en base de datos: " + error.message);
+            return;
+        }
     }
-    pedidoEnEdicionId = null;
-} else {
-    const { error } = await db.from('pedidos').insert([{ // 👈 Y cámbialo aquí también
-        cliente: String(cliente), 
-        detalles: datosPedidoCompleto, 
-        total: Number(totalMonto), 
-        estado: 'pendiente', 
-        montoPagado: 0, 
-        stockDescontado: false 
-    }]);
-    if (error) {
-        alert("Error al guardar en base de datos: " + error.message);
-        return;
+
+    // 🚀 1. Limpiamos el carrito y el formulario para que quede listo para el siguiente pedido
+    carritoActual = [];
+    inputClienteEl.value = '';
+    if (document.getElementById('input-notas')) document.getElementById('input-notas').value = '';
+    if (typeof actualizarVistaCarrito === 'function') actualizarVistaCarrito();
+
+    // 🔄 2. Forzamos la recarga de los datos en la pantalla de "Listado"
+    if (typeof cargarPedidos === 'function') {
+        cargarPedidos();
+    } else if (typeof obtenerPedidos === 'function') {
+        obtenerPedidos();
     }
-}
+
+    alert("¡Pedido guardado con éxito!");
 }
 
         function abrirModalCompletar(id) {
