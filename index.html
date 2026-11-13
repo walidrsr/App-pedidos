@@ -284,6 +284,16 @@
 
     <!-- SCRIPTS -->
     <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+            lucide.createIcons();
+            }
+            const inputFecha = document.getElementById('input-fecha-entrega');
+            if (inputFecha) inputFecha.value = getFechaOffset(0);
+            cargarBorradorPedido();
+            cargarDatosDesdeSupabase();
+        });
+
         const SUPABASE_URL = 'https://clfzcabhguqnakiacuuj.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_rO8v9ZwqjfgcXMc5-74yvQ_O4kLQA7j'; 
         const { createClient } = supabase;
@@ -323,13 +333,7 @@
             { id: 14, nombre: "Yogurt Natural Arándanos", emoji: "🫐", stockActual: 0, precio: 3000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] }
         ];
 
-        window.addEventListener('DOMContentLoaded', () => {
-            if (window.lucide) lucide.createIcons();
-            const inputFecha = document.getElementById('input-fecha-entrega');
-            if (inputFecha) inputFecha.value = getFechaOffset(0);
-            cargarBorradorPedido();
-            cargarDatosDesdeSupabase();
-        });
+    
 
         async function guardarEnSupabase(nombreTabla, objetoDatos) {
             try {
@@ -341,18 +345,18 @@
         }
 
         async function sincronizarProductoEnSupabase(prod) {
-    try {
-        const { error } = await db.from('stock').upsert({
-            id: Number(prod.id),
-            nombre: String(prod.nombre),
-            stockActual: Number(prod.stockActual),
-            precio: Number(prod.precio)
-        }, { onConflict: 'id' });
-        if (error) console.error(`Error al guardar producto ${prod.id}:`, error.message);
-    } catch (err) {
-        console.error("Error de red al guardar en stock:", err);
-    }
-}
+            try {
+                const { error } = await db.from('stock').upsert({
+                    id: Number(prod.id),
+                    nombre: String(prod.nombre),
+                    stockActual: Number(prod.stockActual),
+                    precio: Number(prod.precio)
+                }, { onConflict: 'id' });
+                if (error) console.error(`Error al guardar producto ${prod.id}:`, error.message);
+            } catch (err) {
+                console.error("Error de red al guardar en stock:", err);
+            }
+        }
 
         // ⭐ CORRECCIÓN 1: CARGA INICIAL ROBUSTA Y AUTO-POBLADO DE STOCK
        async function cargarDatosDesdeSupabase() {
@@ -442,7 +446,7 @@
             }
         }
 
-        // ⭐ CORRECCIÓN 2: GUARDAR PRECIO INDIVIDUAL DE FORMA PERMANENTE
+        // CORRECCIÓN 2: GUARDAR PRECIO INDIVIDUAL DE FORMA PERMANENTE
         async function guardarPrecioProducto(productoId) {
                 const input = document.getElementById(`input-precio-${productoId}`);
                 if (!input) return;
@@ -487,6 +491,7 @@
                     <span class="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-1 rounded-lg">Registrado</span>
                 </div>
             `).join('');
+            if (window.lucide) lucide.createIcons();
         }
 
         function renderCatalogo() {
@@ -550,6 +555,7 @@
                     </div>
                 `;
             }).join('');
+            if (window.lucide) lucide.createIcons();
         }
 
         async function ajustarStock(id, cambio) {
@@ -677,6 +683,7 @@
                 `;
             }).join('');
             document.getElementById('carrito-total-precio').innerText = `$${totalPedido.toLocaleString()}`;
+            if (window.lucide) lucide.createIcons();
         }
 
        async function guardarPedido() {
@@ -853,7 +860,7 @@
                 pedido.stockDescontado = true;
             }
 
-            // ⭐ SI EL SALDO LLEGA A 0 O SE SELECCIONÓ ENTREGAR Y COBRAR TOTAL
+            //  SI EL SALDO LLEGA A 0 O SE SELECCIONÓ ENTREGAR Y COBRAR TOTAL
             if (saldoPendienteRestante === 0 || tipoAccion === 'entregar-total') {
                 // 1. Verificar o insertar cliente
                 const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
@@ -932,7 +939,7 @@
                 actualizarTodo();
             }
         }
-        }
+        
                         
 
         function abrirModalAgregarProductos(id) {
@@ -1017,6 +1024,7 @@
             const count = listaPedidos.filter(p => p.fechaEntrega === hoy).length;
             const badge = document.getElementById('badge-entregas-hoy');
             if (badge) badge.innerText = count;
+            if (window.lucide) lucide.createIcons();
         }
 
         function renderEntregasHoy() {
@@ -1037,6 +1045,7 @@
                     <p class="text-slate-600">${p.items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</p>
                 </div>
             `).join('');
+            if (window.lucide) lucide.createIcons();
         }
 
     function renderListadoGeneral() {
@@ -1070,6 +1079,7 @@
                 </div>
             `;
         }).join('');
+        if (window.lucide) lucide.createIcons();
     }
 
 
@@ -1118,6 +1128,7 @@
             const select = document.getElementById('prov-producto-select');
             if (!select) return;
             select.innerHTML = catalogoProductos.map(p => `<option value="${p.id}">${p.emoji} ${p.nombre} (Stock: ${p.stockActual})</option>`).join('');
+            if (window.lucide) lucide.createIcons();
         }
 
         async function registrarPedidoProveedor() {
@@ -1158,6 +1169,7 @@
                     </div>
                 `;
             }).join('');
+            if (window.lucide) lucide.createIcons();
         }
 
         async function agregarDeudor() {
@@ -1258,6 +1270,7 @@
                 html += `</div>`;
             });
             contenedor.innerHTML = html;
+            if (window.lucide) lucide.createIcons();
         }
 
         async function eliminarVenta(id) {
