@@ -373,49 +373,32 @@
                     stockActual: Number(found.cantidad ?? catItem.stockActual)
                 } : catItem;
             });
-        } else {
-            console.warn("⚠️ La tabla stock está vacía en Supabase. Poblando catálogo inicial...");
-            const productosParaInsertar = catalogoProductos.map(p => ({
-                id: Number(p.id),
-                nombre: String(p.nombre),
-                cantidad: Number(p.stockActual),
-                precio: Number(p.precio)
-            }));
-            const { error: errInsert } = await db.from('stock').upsert(productosParaInsertar, { onConflict: 'id' });
-            if (errInsert) {
-                console.error("Error al poblar stock inicial:", errInsert.message);
-            }
         }
 
-        // 2. Cargar Deudores
+        // 2. Cargar Deudores (id, nombreCliente, montoDeuda)
         const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
         if (!errDeu && deuData) {
             listaDeudores = deuData.map(d => ({
                 id: d.id,
                 cliente: d.nombreCliente || d.cliente,
                 nombreCliente: d.nombreCliente || d.cliente,
-                montoDeuda: Number(d.montoDeuda || d.monto || 0),
-                monto: Number(d.montoDeuda || d.monto || 0),
-                concepto: d.concepto || 'Deuda de pedido'
+                montoDeuda: Number(d.montoDeuda || 0),
+                monto: Number(d.montoDeuda || 0),
+                concepto: 'Deuda de pedido'
             }));
         }
 
-        // 3. Cargar Pedidos leyendo limpiamente el montoPagado directo de la base de datos
+        // 3. Cargar Pedidos (id, cliente, total, estado, stockDescontado, detalles)
         const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
         if (!errPed && pedData) {
             listaPedidos = pedData.map(p => {
                 const totalP = Number(p.total || 0);
-                let montoPagadoReal = Number(p.montoPagado);
-                if (isNaN(montoPagadoReal)) {
-                    montoPagadoReal = 0;
-                }
 
                 return {
                     id: p.id,
                     cliente: p.cliente,
                     total: totalP,
                     estado: p.estado || 'pendiente',
-                    montoPagado: montoPagadoReal,
                     stockDescontado: p.stockDescontado || false,
                     fechaEntrega: p.detalles?.fechaEntrega || '',
                     notas: p.detalles?.notas || '',
@@ -430,7 +413,7 @@
         if (!errVent && ventData) {
             listaVentas = ventData.map(v => ({
                 id: v.id,
-                cliente: v.cliente || v.nombreCliente,
+                cliente: v.nombreCliente || v.cliente,
                 total: Number(v.total || 0),
                 metodo_pago: v.metodo_pago,
                 fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
@@ -440,7 +423,7 @@
             }));
         }
 
-        // 🟢 5. EJECUTAR TODOS LOS RENDERS Y ACTUALIZACIONES DE LA VISTA
+        // 🟢 5. EJECUTAR TODOS LOS RENDERS PARA ACTUALIZAR LA INTERFAZ
         if (typeof renderCatalogo === 'function') renderCatalogo();
         if (typeof renderStockMovil === 'function') renderStockMovil();
         if (typeof renderSelectProveedores === 'function') renderSelectProveedores();
@@ -456,7 +439,7 @@
             actualizarTodo();
         }
 
-        console.log("✅ Datos, stock y renders sincronizados correctamente desde Supabase.");
+        console.log("✅ Datos y renders sincronizados correctamente desde Supabase.");
     } catch (err) {
         console.error("Error al cargar datos desde Supabase:", err);
     }
@@ -843,8 +826,9 @@
         alert("No se encontró el pedido en proceso.");
         return;
     }
-
     const pedido = listaPedidos[pedidoIndex];
+    
+    // 1. Obtener y validar el monto ingresado
     const inputMontoEl = document.getElementById('modal-input-monto-pagado');
     const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
 
@@ -854,15 +838,19 @@
     }
 
     const totalPedido = Number(pedido.total || 0);
-    const montoAnteriorTotal = Number(pedido.montoPagado || 0);
-    const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
-    const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
+    
+    // 2. Verificamos si este pedido ya tiene un registro en la tabla 'deudores'
+    const { data: deudorExistenteArr } = await db.from('deudores').select('*').eq('id', Number(pedido.id));
+    
+    // Si ya estaba en deudores, su deuda actual es montoDeuda. Si no, su deuda inicial es el total del pedido.
+    const deudaActual = (deudorExistenteArr && deudorExistenteArr.length > 0) 
+        ? Number(deudorExistenteArr[0].montoDeuda) 
+        : totalPedido;
+
+    const nuevoSaldoPendiente = Math.max(0, deudaActual - montoIngresado);
     const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
 
-    // Actualizamos localmente
-    pedido.montoPagado = nuevoMontoPagadoTotal;
-
-    // Descontar stock si aún no se había hecho
+    // 3. Descontar stock si aún no se había hecho
     if (!pedido.stockDescontado) {
         for (const item of pedido.items) {
             const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
@@ -872,19 +860,25 @@
             }
         }
         pedido.stockDescontado = true;
+        await db.from('pedidos').update({ stockDescontado: true }).eq('id', Number(pedido.id));
     }
 
-    // ⭐ SI EL SALDO LLEGA A 0 O SE SELECCIONÓ ENTREGAR Y COBRAR TOTAL
-    if (saldoPendienteRestante === 0 || tipoAccion === 'entregar-total') {
+    // 4. CASO A: Pago Total (El saldo restante es 0)
+    if (nuevoSaldoPendiente === 0) {
+        // Asegurar cliente en tabla 'clientes'
         const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
         if (!clienteCheck || clienteCheck.length === 0) {
-            await db.from('clientes').insert([{ nombre: nombreClienteLimpio, telefono: 'Sin teléfono' }]);
+            await db.from('clientes').insert([{
+                nombre: nombreClienteLimpio,
+                telefono: 'Sin teléfono'
+            }]);
         }
 
+        // Registrar venta en tabla 'ventas' (id, total, metodo_pago, nombreCliente, detalles_venta)
         const datosVentaSupabase = {
             id: Number(pedido.id),
             total: Number(totalPedido),
-            metodo_pago: nuevoMontoPagadoTotal >= totalPedido ? 'Pagado 100%' : 'Pago Parcial Saldado',
+            metodo_pago: 'Pagado 100%',
             nombreCliente: nombreClienteLimpio,
             detalles_venta: {
                 items: pedido.items || [],
@@ -898,46 +892,44 @@
             return;
         }
 
-        // Limpieza de pedidos y deudores relacionados
+        // Borrar el pedido completado de la tabla 'pedidos'
         await db.from('pedidos').delete().eq('id', Number(pedido.id));
+
+        // Limpiar de la tabla 'deudores' usando el ID del pedido
         await db.from('deudores').delete().eq('id', Number(pedido.id));
-        listaPedidos.splice(pedidoIndex, 1);
-        alert(`🎉 ¡Pedido #${pedido.id} completado y movido al historial de ventas!`);
+
+        alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada con éxito.`);
     } 
-    // ⭐ CASO: PAGO PARCIAL (Queda saldo pendiente)
+    // 5. CASO B: Pago Parcial (Queda saldo pendiente)
     else {
-        // Actualizamos montoPagado en la tabla pedidos
-        await db.from('pedidos')
-            .update({
-                montoPagado: Number(nuevoMontoPagadoTotal),
-                stockDescontado: true
-            })
-            .eq('id', Number(pedido.id));
-
-        // Insertamos o actualizamos en la tabla deudores respetando las columnas exactas: id, nombreCliente, montoDeuda
-        const datosDeudor = {
-            id: Number(pedido.id),
-            nombreCliente: nombreClienteLimpio,
-            montoDeuda: Number(saldoPendienteRestante)
-        };
-
-        const { error: errDeudor } = await db.from('deudores').upsert(datosDeudor, { onConflict: 'id' });
-        
-        if (errDeudor) {
-            console.error("Error al guardar en deudores:", errDeudor.message);
-            alert("Error al registrar deuda en Supabase: " + errDeudor.message);
-            return;
+        if (deudorExistenteArr && deudorExistenteArr.length > 0) {
+            // Actualizamos el montoDeuda existente en la tabla 'deudores'
+            await db.from('deudores').update({
+                montoDeuda: nuevoSaldoPendiente
+            }).eq('id', Number(pedido.id));
+        } else {
+            // Insertamos nuevo deudor vinculado al ID del pedido (id, nombreCliente, montoDeuda)
+            const nuevoDeudor = {
+                id: Number(pedido.id),
+                nombreCliente: nombreClienteLimpio,
+                montoDeuda: nuevoSaldoPendiente
+            };
+            await db.from('deudores').insert([nuevoDeudor]);
         }
 
-        alert(`💵 Pago parcial registrado. Abonó: $${montoIngresado.toLocaleString()}. Nuevo debe: $${saldoPendienteRestante.toLocaleString()}`);
+        alert(`💵 Pago parcial de $${montoIngresado} registrado. Queda un saldo pendiente de $${nuevoSaldoPendiente}.`);
     }
 
+    // Limpiar input y cerrar modal
     if (inputMontoEl) inputMontoEl.value = '';
-    const modalGestion = document.getElementById('modal-completar');
+    const modalGestion = document.getElementById('modal-gestionar-pedido');
     if (modalGestion) modalGestion.classList.add('hidden');
 
+    // Recargar datos en la app para reflejar los cambios en pantalla
     await cargarDatosDesdeSupabase();
-    if (typeof actualizarTodo === 'function') actualizarTodo();
+    if (typeof actualizarTodo === 'function') {
+        actualizarTodo();
+    }
 }
         
                         
@@ -1049,38 +1041,43 @@
         }
 
     function renderListadoGeneral() {
-        const contenedor = document.getElementById('contenedor-listado-pedidos');
-        if (!contenedor) return;
-        if (listaPedidos.length === 0) {
-            contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
-            return;
-        }
-        contenedor.innerHTML = listaPedidos.map(p => {
-            const total = Number(p.total || 0);
-            const montoPagado = Number(p.montoPagado || 0);
-            const saldoAdeudado = Math.max(0, total - montoPagado); // Resta exacta en tiempo real
+    const contenedor = document.getElementById('contenedor-listado-pedidos');
+    if (!contenedor) return;
+    if (listaPedidos.length === 0) {
+        contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
+        return;
+    }
+    contenedor.innerHTML = listaPedidos.map(p => {
+        const total = Number(p.total || 0);
+        
+        // 🔍 Buscamos si este pedido tiene deuda activa en la tabla 'deudores' (vinculada por id)
+        const deudorMatch = listaDeudores.find(d => Number(d.id) === Number(p.id));
+        
+        // Si está en deudores, debe lo que dice montoDeuda. 
+        // Si NO está en deudores, significa que no ha abonado nada todavía, por lo que debe el 100% (total).
+        const saldoAdeudado = deudorMatch ? Number(deudorMatch.montoDeuda || 0) : total;
 
-            return `
-                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
-                    <div>
-                        <strong class="text-slate-800">#${p.id} - ${p.cliente}</strong>
-                        <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
-                        <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
-                        <div class="mt-1 font-bold">
-                            <span class="text-slate-600">Total: $${total.toLocaleString()}</span>
-                            ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
-                        <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
-                        <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
+        return `
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
+                <div>
+                    <strong class="text-slate-800">#${p.id} ${p.cliente}</strong>
+                    <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
+                    <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
+                    <div class="mt-1 font-bold">
+                        <span class="text-slate-600">Total: $${total.toLocaleString()}</span>
+                        ${saldoAdeudado > 0 ? `<span class="text-red-600 ml-2">Debe: $${saldoAdeudado.toLocaleString()}</span>` : `<span class="text-emerald-600 ml-2">Al día</span>`}
                     </div>
                 </div>
-            `;
-        }).join('');
-        if (window.lucide) lucide.createIcons();
-    }
+                <div class="flex flex-col gap-1">
+                    <button onclick="abrirModalCompletar(${p.id})" class="px-2 py-1 bg-emerald-500 text-white font-bold rounded-lg text-[10px]">Gestionar</button>
+                    <button onclick="abrirModalAgregarProductos(${p.id})" class="px-2 py-1 bg-amber-500 text-white font-bold rounded-lg text-[10px]">Editar</button>
+                    <button onclick="completarPedidoDirecto(${p.id})" class="px-2 py-1 bg-red-500 text-white font-bold rounded-lg text-[10px]">Borrar</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    if (window.lucide) lucide.createIcons();
+}
 
 
         async function completarPedidoDirecto(id) {
