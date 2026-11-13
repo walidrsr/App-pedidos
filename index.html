@@ -404,6 +404,7 @@ async function cargarDatosDesdeSupabase() {
         }
 
         // 3. Cargar Pedidos y sincronizar el monto pagado real basado en la tabla deudores
+        // 3. Cargar Pedidos y sincronizar el monto pagado real
         const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
         if (!errPed && pedData) {
             listaPedidos = pedData.map(p => {
@@ -411,13 +412,14 @@ async function cargarDatosDesdeSupabase() {
                 // Buscamos si este pedido tiene deuda activa en la tabla 'deudores'
                 const deudorMatch = deuData ? deuData.find(d => Number(d.id) === Number(p.id)) : null;
                 
-                // Si existe en deudores, lo pagado es el Total menos el montoDeuda actual
-                // Si ya no está en deudores, significa que está totalmente pagado o saldado
                 let pagadoCalculado = 0;
                 if (deudorMatch) {
+                    // Si está en deudores, lo pagado es el Total menos lo que debe
                     pagadoCalculado = Math.max(0, totalP - Number(deudorMatch.montoDeuda || 0));
                 } else {
-                    pagadoCalculado = Number(p.montoPagado || totalP);
+                    // ⭐ CORRECCIÓN: Si no está en deudores, por defecto debe TODO (montoPagado = 0), 
+                    // a menos que explícitamente tenga un valor guardado en p.montoPagado
+                    pagadoCalculado = Number(p.montoPagado || 0);
                 }
 
                 return {
@@ -425,7 +427,7 @@ async function cargarDatosDesdeSupabase() {
                     cliente: p.cliente,
                     total: totalP,
                     estado: p.estado || 'pendiente',
-                    montoPagado: pagadoCalculado, // ⭐ Sincronización correcta en tiempo real
+                    montoPagado: pagadoCalculado,
                     stockDescontado: p.stockDescontado || false,
                     fechaEntrega: p.detalles?.fechaEntrega || '',
                     notas: p.detalles?.notas || '',
