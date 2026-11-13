@@ -802,19 +802,39 @@
             alert("¡Pedido guardado con éxito!");
         }
 
-        function abrirModalCompletar(id) {
-            pedidoEnProcesoId = Number(id);
-            const pedido = listaPedidos.find(p => Number(p.id) === pedidoEnProcesoId);
-            if (!pedido) return;
-            const totalPedido = Number(pedido.total || 0);
-            const montoYaPagado = Number(pedido.montoPagado || 0);
-            const saldoPendienteReal = Math.max(0, totalPedido - montoYaPagado);
-            document.getElementById('modal-titulo-cliente').innerText = `Gestión: ${pedido.cliente}`;
-            document.getElementById('modal-total-venta').innerText = `$${totalPedido.toLocaleString()}`;
-            document.getElementById('modal-deuda-pendiente').innerText = `$${saldoPendienteReal.toLocaleString()}`;
-            document.getElementById('modal-input-monto-pagado').value = saldoPendienteReal;
-            document.getElementById('modal-completar').classList.remove('hidden');
-        }
+        let pedidoEnProcesoId = null;
+
+function abrirModalCompletar(id) {
+    pedidoEnProcesoId = Number(id);
+    
+    // Buscar el pedido en la lista
+    const pedido = listaPedidos.find(p => Number(p.id) === pedidoEnProcesoId);
+    if (!pedido) {
+        alert("No se encontró el pedido.");
+        return;
+    }
+
+    const totalPedido = Number(pedido.total || 0);
+
+    // 🔍 Buscar si este pedido ya tiene una deuda registrada en la tabla/lista de deudores
+    const deudorMatch = listaDeudores.find(d => Number(d.id) === Number(pedido.id));
+    
+    // Si ya existe en deudores, el saldo pendiente es 'montoDeuda'. 
+    // Si no está en deudores, significa que no ha pagado nada y debe el 100% (el total).
+    const saldoAdeudadoActual = deudorMatch ? Number(deudorMatch.montoDeuda || 0) : totalPedido;
+
+    // 💡 Pre-llenar el input "Monto que paga hoy ($)" con el saldo adeudado exacto
+    const inputMontoEl = document.getElementById('modal-input-monto-pagado');
+    if (inputMontoEl) {
+        inputMontoEl.value = saldoAdeudadoActual; 
+    }
+
+    // Mostrar el modal de gestión
+    const modalGestion = document.getElementById('modal-gestionar-pedido');
+    if (modalGestion) {
+        modalGestion.classList.remove('hidden');
+    }
+}
 
         function cerrarModalCompletar() {
                 document.getElementById('modal-completar').classList.add('hidden');
