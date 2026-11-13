@@ -803,35 +803,36 @@
         }
 
         
+// (Ya no pongas 'let pedidoEnProcesoId = null;' aquí si ya existe arriba)
+
 function abrirModalCompletar(id) {
-    pedidoEnProcesoId = Number(id);
-    
-    // Buscar el pedido en la lista
-    const pedido = listaPedidos.find(p => Number(p.id) === pedidoEnProcesoId);
-    if (!pedido) {
-        alert("No se encontró el pedido.");
-        return;
-    }
+    try {
+        pedidoEnProcesoId = Number(id); // Solo usa la variable directamente
+        
+        const listaP = window.listaPedidos || listaPedidos || [];
+        const listaD = window.listaDeudores || listaDeudores || [];
+        
+        const pedido = listaP.find(p => Number(p.id) === pedidoEnProcesoId);
+        if (!pedido) {
+            alert("No se encontró el pedido en la lista.");
+            return;
+        }
 
-    const totalPedido = Number(pedido.total || 0);
+        const totalPedido = Number(pedido.total || 0);
+        const deudorMatch = listaD.find(d => Number(d.id) === Number(pedido.id));
+        const saldoAdeudadoActual = deudorMatch ? Number(deudorMatch.montoDeuda || 0) : totalPedido;
 
-    // 🔍 Buscar si este pedido ya tiene una deuda registrada en la tabla/lista de deudores
-    const deudorMatch = listaDeudores.find(d => Number(d.id) === Number(pedido.id));
-    
-    // Si ya existe en deudores, el saldo pendiente es 'montoDeuda'. 
-    // Si no está en deudores, significa que no ha pagado nada y debe el 100% (el total).
-    const saldoAdeudadoActual = deudorMatch ? Number(deudorMatch.montoDeuda || 0) : totalPedido;
+        const inputMontoEl = document.getElementById('modal-input-monto-pagado');
+        if (inputMontoEl) {
+            inputMontoEl.value = saldoAdeudadoActual; 
+        }
 
-    // 💡 Pre-llenar el input "Monto que paga hoy ($)" con el saldo adeudado exacto
-    const inputMontoEl = document.getElementById('modal-input-monto-pagado');
-    if (inputMontoEl) {
-        inputMontoEl.value = saldoAdeudadoActual; 
-    }
-
-    // Mostrar el modal de gestión
-    const modalGestion = document.getElementById('modal-gestionar-pedido');
-    if (modalGestion) {
-        modalGestion.classList.remove('hidden');
+        const modalGestion = document.getElementById('modal-gestionar-pedido');
+        if (modalGestion) {
+            modalGestion.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error("Error al intentar abrir el modal de gestión:", err);
     }
 }
 
