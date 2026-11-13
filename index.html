@@ -360,105 +360,99 @@
 
         // ⭐ CORRECCIÓN 1: CARGA INICIAL ROBUSTA Y AUTO-POBLADO DE STOCK
        // ⭐ CARGA DE DATOS COMPLETA Y CORREGIDA PARA SINCRONIZAR DEUDORES Y PEDIDOS
-async function cargarDatosDesdeSupabase() {
-    try {
-        // 1. Cargar Stock
-        const { data: prodData, error: errProd } = await db.from('stock').select('*');
-        if (!errProd && prodData && prodData.length > 0) {
-            catalogoProductos = catalogoProductos.map(catItem => {
-                const found = prodData.find(p => Number(p.id) === Number(catItem.id));
-                return found ? {
-                    ...catItem,
-                    precio: Number(found.precio ?? catItem.precio),
-                    stockActual: Number(found.cantidad ?? catItem.stockActual ?? catItem.stockActual)
-                } : catItem;
-            });
-        } else {
-            console.warn("⚠️ La tabla stock está vacía en Supabase. Poblando catálogo inicial...");
-            const productosParaInsertar = catalogoProductos.map(p => ({
-                id: Number(p.id),
-                nombre: String(p.nombre),
-                cantidad: Number(p.stockActual),
-                precio: Number(p.precio)
-            }));
-            const { error: errInsert } = await db.from('stock').upsert(productosParaInsertar, { onConflict: 'id' });
-            if (errInsert) {
-                console.error("Error al poblar stock inicial:", errInsert.message);
-            }
-        }
-        renderCatalogo();
-        renderStockMovil();
-        renderSelectProveedores();
-
-        // 2. Cargar Deudores PRIMERO para poder calcular el monto pagado exacto de cada pedido
-        const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
-        if (!errDeu && deuData) {
-            listaDeudores = deuData.map(d => ({
-                id: d.id,
-                cliente: d.nombreCliente || d.cliente,
-                nombreCliente: d.nombreCliente || d.cliente,
-                montoDeuda: Number(d.montoDeuda || d.monto || 0),
-                monto: Number(d.montoDeuda || d.monto || 0),
-                concepto: d.concepto || 'Deuda de pedido'
-            }));
-        }
-
-        // 3. Cargar Pedidos y sincronizar el monto pagado real basado en la tabla deudores
-        // 3. Cargar Pedidos y sincronizar el monto pagado real
-        const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
-        if (!errPed && pedData) {
-            listaPedidos = pedData.map(p => {
-                const totalP = Number(p.total || 0);
-                // Buscamos si este pedido tiene deuda activa en la tabla 'deudores'
-                const deudorMatch = deuData ? deuData.find(d => Number(d.id) === Number(p.id)) : null;
-                
-                let pagadoCalculado = 0;
-                if (deudorMatch) {
-                    // Si está en deudores, lo pagado es el Total menos lo que debe
-                    pagadoCalculado = Math.max(0, totalP - Number(deudorMatch.montoDeuda || 0));
+        async function cargarDatosDesdeSupabase() {
+            try {
+                // 1. Cargar Stock
+                const { data: prodData, error: errProd } = await db.from('stock').select('*');
+                if (!errProd && prodData && prodData.length > 0) {
+                    catalogoProductos = catalogoProductos.map(catItem => {
+                        const found = prodData.find(p => Number(p.id) === Number(catItem.id));
+                        return found ? {
+                            ...catItem,
+                            precio: Number(found.precio ?? catItem.precio),
+                            stockActual: Number(found.cantidad ?? catItem.stockActual)
+                        } : catItem;
+                    });
                 } else {
-                    // ⭐ CORRECCIÓN: Si no está en deudores, por defecto debe TODO (montoPagado = 0), 
-                    // a menos que explícitamente tenga un valor guardado en p.montoPagado
-                    pagadoCalculado = Number(p.montoPagado || 0);
+                    console.warn("⚠️ La tabla stock está vacía en Supabase. Poblando catálogo inicial...");
+                    const productosParaInsertar = catalogoProductos.map(p => ({
+                        id: Number(p.id),
+                        nombre: String(p.nombre),
+                        cantidad: Number(p.stockActual),
+                        precio: Number(p.precio)
+                    }));
+                    const { error: errInsert } = await db.from('stock').upsert(productosParaInsertar, { onConflict: 'id' });
+                    if (errInsert) {
+                        console.error("Error al poblar stock inicial:", errInsert.message);
+                    }
+                }
+                renderCatalogo();
+                renderStockMovil();
+                renderSelectProveedores();
+
+                // 2. Cargar Deudores
+                const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
+                if (!errDeu && deuData) {
+                    listaDeudores = deuData.map(d => ({
+                        id: d.id,
+                        cliente: d.nombreCliente || d.cliente,
+                        nombreCliente: d.nombreCliente || d.cliente,
+                        montoDeuda: Number(d.montoDeuda || d.monto || 0),
+                        monto: Number(d.montoDeuda || d.monto || 0),
+                        concepto: d.concepto || 'Deuda de pedido'
+                    }));
                 }
 
-                return {
-                    id: p.id,
-                    cliente: p.cliente,
-                    total: totalP,
-                    estado: p.estado || 'pendiente',
-                    montoPagado: pagadoCalculado,
-                    stockDescontado: p.stockDescontado || false,
-                    fechaEntrega: p.detalles?.fechaEntrega || '',
-                    notas: p.detalles?.notas || '',
-                    items: p.detalles?.items || [],
-                    horaRegistro: p.detalles?.horaRegistro || ''
-                };
-            });
-        }
+                // 3. Cargar Pedidos respetando el monto pagado real de la base de datos
+                const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
+                if (!errPed && pedData) {
+                    listaPedidos = pedData.map(p => {
+                        const totalP = Number(p.total || 0);
+                        
+                        // ⭐ CORRECCIÓN CLAVE: Leemos directamente el montoPagado guardado en Supabase.
+                        // Si es null o undefined, por defecto es 0 (no ha pagado nada al crearse).
+                        let montoPagadoReal = Number(p.montoPagado);
+                        if (isNaN(montoPagadoReal)) {
+                            montoPagadoReal = 0;
+                        }
 
-        // 4. Cargar Ventas
-        const { data: ventData, error: errVent } = await db.from('ventas').select('*');
-        if (!errVent && ventData) {
-            listaVentas = ventData.map(v => ({
-                id: v.id,
-                cliente: v.cliente,
-                total: Number(v.total || 0),
-                metodo_pago: v.metodo_pago,
-                fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
-                fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
-                items: v.detalles_venta?.items || [],
-                horaRegistro: v.detalles_venta?.horaRegistro || ''
-            }));
-            if (typeof renderVentasArbol === 'function') renderVentasArbol();
-        }
+                        return {
+                            id: p.id,
+                            cliente: p.cliente,
+                            total: totalP,
+                            estado: p.estado || 'pendiente',
+                            montoPagado: montoPagadoReal, // 👈 Se asigna el valor limpio de la BD
+                            stockDescontado: p.stockDescontado || false,
+                            fechaEntrega: p.detalles?.fechaEntrega || '',
+                            notas: p.detalles?.notas || '',
+                            items: p.detalles?.items || [],
+                            horaRegistro: p.detalles?.horaRegistro || ''
+                        };
+                    });
+                }
 
-        actualizarTodo();
-        console.log("✅ Datos y stock cargados correctamente desde Supabase.");
-    } catch (err) {
-        console.error("Error al cargar datos desde Supabase:", err);
-    }
-}
+                // 4. Cargar Ventas
+                const { data: ventData, error: errVent } = await db.from('ventas').select('*');
+                if (!errVent && ventData) {
+                    listaVentas = ventData.map(v => ({
+                        id: v.id,
+                        cliente: v.cliente || v.nombreCliente,
+                        total: Number(v.total || 0),
+                        metodo_pago: v.metodo_pago,
+                        fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
+                        fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
+                        items: v.detalles_venta?.items || [],
+                        horaRegistro: v.detalles_venta?.horaRegistro || ''
+                    }));
+                    if (typeof renderVentasArbol === 'function') renderVentasArbol();
+                }
+
+                actualizarTodo();
+                console.log("✅ Datos y stock cargados correctamente desde Supabase.");
+            } catch (err) {
+                console.error("Error al cargar datos desde Supabase:", err);
+            }
+        }
 
         // CORRECCIÓN 2: GUARDAR PRECIO INDIVIDUAL DE FORMA PERMANENTE
         async function guardarPrecioProducto(productoId) {
