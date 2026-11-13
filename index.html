@@ -402,6 +402,7 @@
                         concepto: d.concepto || 'Deuda de pedido'
                     }));
                 }
+                renderListadoGeneral();
 
                 // 3. Cargar Pedidos respetando el monto pagado real de la base de datos
                 const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
@@ -430,6 +431,7 @@
                         };
                     });
                 }
+                renderListadoGeneral();
 
                 // 4. Cargar Ventas
                 const { data: ventData, error: errVent } = await db.from('ventas').select('*');
