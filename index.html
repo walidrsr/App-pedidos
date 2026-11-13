@@ -804,27 +804,53 @@
 
         function abrirModalCompletar(id) {
             pedidoEnProcesoId = Number(id);
+            
+            // 1. Buscar el pedido de forma segura
             const pedido = listaPedidos.find(p => Number(p.id) === pedidoEnProcesoId);
-            if (!pedido) return;
+            if (!pedido) {
+                console.warn("No se encontró el pedido con ID:", id);
+                alert("No se encontró el pedido en la lista.");
+                return;
+            }
+
             const totalPedido = Number(pedido.total || 0);
+
+            // 2. Calcular el saldo adeudado usando la tabla de deudores
             const deudorMatch = listaDeudores.find(d => Number(d.id) === Number(pedido.id));
             const saldoAdeudadoActual = deudorMatch ? Number(deudorMatch.montoDeuda || 0) : totalPedido;
-            const montoYaPagado = Number(pedido.montoPagado || 0);
-            const saldoPendienteReal = Math.max(0, totalPedido - montoYaPagado);
+
+            // 3. Capturar los elementos del DOM de forma segura
+            const inputMontoEl = document.getElementById('modal-input-monto-pagado');
+            const modalGestion = document.getElementById('modal-gestionar-pedido');
+            const lblTituloCliente = document.getElementById('modal-titulo-cliente');
+            const lblTotalVenta = document.getElementById('modal-total-venta');
+            const lblDeudaPendiente = document.getElementById('modal-deuda-pendiente');
+            const btnCompletar = document.getElementById('modal-completar');
+
+            // 4. Asignar valores solo si los elementos existen en el HTML (Evita que crashee)
             if (inputMontoEl) {
                 inputMontoEl.value = saldoAdeudadoActual; 
             }
 
-            // Mostrar el modal de gestión
-            const modalGestion = document.getElementById('modal-gestionar-pedido');
             if (modalGestion) {
                 modalGestion.classList.remove('hidden');
             }
-            document.getElementById('modal-titulo-cliente').innerText = `Gestión: ${pedido.cliente}`;
-            document.getElementById('modal-total-venta').innerText = `$${totalPedido.toLocaleString()}`;
-            document.getElementById('modal-deuda-pendiente').innerText = `$${saldoPendienteReal.toLocaleString()}`;
-            document.getElementById('modal-input-monto-pagado').value = saldoPendienteReal;
-            document.getElementById('modal-completar').classList.remove('hidden');
+
+            if (lblTituloCliente) {
+                lblTituloCliente.innerText = `Gestión: ${pedido.cliente || ''}`;
+            }
+
+            if (lblTotalVenta) {
+                lblTotalVenta.innerText = `$${totalPedido.toLocaleString()}`;
+            }
+
+            if (lblDeudaPendiente) {
+                lblDeudaPendiente.innerText = `$${saldoAdeudadoActual.toLocaleString()}`;
+            }
+
+            if (btnCompletar) {
+                btnCompletar.classList.remove('hidden');
+            }
         }
 
         function cerrarModalCompletar() {
