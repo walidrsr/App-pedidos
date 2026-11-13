@@ -802,39 +802,19 @@
             alert("¡Pedido guardado con éxito!");
         }
 
-        
-// (Ya no pongas 'let pedidoEnProcesoId = null;' aquí si ya existe arriba)
-
-function abrirModalCompletar(id) {
-    try {
-        pedidoEnProcesoId = Number(id); // Solo usa la variable directamente
-        
-        const listaP = window.listaPedidos || listaPedidos || [];
-        const listaD = window.listaDeudores || listaDeudores || [];
-        
-        const pedido = listaP.find(p => Number(p.id) === pedidoEnProcesoId);
-        if (!pedido) {
-            alert("No se encontró el pedido en la lista.");
-            return;
+        function abrirModalCompletar(id) {
+            pedidoEnProcesoId = Number(id);
+            const pedido = listaPedidos.find(p => Number(p.id) === pedidoEnProcesoId);
+            if (!pedido) return;
+            const totalPedido = Number(pedido.total || 0);
+            const montoYaPagado = Number(pedido.montoPagado || 0);
+            const saldoPendienteReal = Math.max(0, totalPedido - montoYaPagado);
+            document.getElementById('modal-titulo-cliente').innerText = `Gestión: ${pedido.cliente}`;
+            document.getElementById('modal-total-venta').innerText = `$${totalPedido.toLocaleString()}`;
+            document.getElementById('modal-deuda-pendiente').innerText = `$${saldoPendienteReal.toLocaleString()}`;
+            document.getElementById('modal-input-monto-pagado').value = saldoPendienteReal;
+            document.getElementById('modal-completar').classList.remove('hidden');
         }
-
-        const totalPedido = Number(pedido.total || 0);
-        const deudorMatch = listaD.find(d => Number(d.id) === Number(pedido.id));
-        const saldoAdeudadoActual = deudorMatch ? Number(deudorMatch.montoDeuda || 0) : totalPedido;
-
-        const inputMontoEl = document.getElementById('modal-input-monto-pagado');
-        if (inputMontoEl) {
-            inputMontoEl.value = saldoAdeudadoActual; 
-        }
-
-        const modalGestion = document.getElementById('modal-gestionar-pedido');
-        if (modalGestion) {
-            modalGestion.classList.remove('hidden');
-        }
-    } catch (err) {
-        console.error("Error al intentar abrir el modal de gestión:", err);
-    }
-}
 
         function cerrarModalCompletar() {
                 document.getElementById('modal-completar').classList.add('hidden');
