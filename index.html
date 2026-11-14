@@ -420,6 +420,18 @@
 
     
 
+        // Borra una fila y confirma que realmente se borró.
+        // Si la base de datos bloquea el borrado (por ejemplo, por permisos RLS), Supabase no devuelve
+        // error: solo responde con 0 filas borradas. Por eso se pide la fila borrada con .select().
+        async function borrarEnSupabase(tabla, id) {
+            const { data, error } = await db.from(tabla).delete().eq('id', Number(id)).select();
+            if (error) return { ok: false, mensaje: error.message };
+            if (!data || data.length === 0) {
+                return { ok: false, mensaje: "la base de datos no eliminó ningún registro (falta permiso de borrado o el registro ya no existe)." };
+            }
+            return { ok: true };
+        }
+
         async function guardarEnSupabase(nombreTabla, objetoDatos) {
             try {
                 const { error } = await db.from(nombreTabla).upsert(objetoDatos, { onConflict: 'id' });
@@ -1172,7 +1184,7 @@
         return `
             <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">
                 <div>
-                    <strong class="text-slate-800">#${p.id} ${p.cliente}</strong>
+                    <strong class="text-slate-800">${p.cliente}</strong>
                     <span class="text-amber-800 ml-1 font-semibold">(${p.fechaEntrega})</span>
                     <div class="text-slate-500 mt-0.5">${p.items.map(i => `${i.emoji || ''} ${i.nombre} x${i.cantidad}`).join(', ')}</div>
                     <div class="mt-1 font-bold">
@@ -1199,14 +1211,11 @@
 
             try {
                 // 1. 🗑️ Borrar el registro directamente de la tabla 'pedidos' en Supabase
-                const { error } = await db
-                    .from('pedidos')
-                    .delete()
-                    .eq('id', Number(id));
+                const resultado = await borrarEnSupabase('pedidos', id);
 
-                if (error) {
-                    console.error("Error al borrar en Supabase:", error.message);
-                    alert("No se pudo eliminar el pedido de la base de datos: " + error.message);
+                if (!resultado.ok) {
+                    console.error("Error al borrar en Supabase:", resultado.mensaje);
+                    alert("No se pudo eliminar el pedido de la base de datos: " + resultado.mensaje);
                     return;
                 }
 
@@ -1453,11 +1462,15 @@
         }
 
         async function eliminarDeudor(id) {
-            if (confirm("¿Confirmar que la deuda ha sido pagada/saldada?")) {
-                listaDeudores = listaDeudores.filter(d => Number(d.id) !== Number(id));
-                await db.from(STORE_DEUDORES).delete().eq('id', Number(id));
-                renderDeudores();
+            if (!confirm("¿Confirmar que la deuda ha sido pagada/saldada?")) return;
+
+            const resultado = await borrarEnSupabase(STORE_DEUDORES, id);
+            if (!resultado.ok) {
+                alert("No se pudo eliminar la deuda: " + resultado.mensaje);
+                return;
             }
+            listaDeudores = listaDeudores.filter(d => Number(d.id) !== Number(id));
+            renderDeudores();
         }
 
         // VENTAS JERÁRQUICAS
@@ -1533,11 +1546,16 @@
         }
 
         async function eliminarVenta(id) {
-            if (confirm("¿Estás seguro de que deseas eliminar esta venta del historial?")) {
-                listaVentas = listaVentas.filter(v => Number(v.id) !== Number(id));
-                await db.from(STORE_VENTAS).delete().eq('id', Number(id));
-                renderVentasArbol();
+            if (!confirm("¿Estás seguro de que deseas eliminar esta venta del historial?")) return;
+
+            // Primero se borra en la base de datos; solo si de verdad se borró se quita de la pantalla
+            const resultado = await borrarEnSupabase(STORE_VENTAS, id);
+            if (!resultado.ok) {
+                alert("No se pudo eliminar la venta: " + resultado.mensaje);
+                return;
             }
+            listaVentas = listaVentas.filter(v => Number(v.id) !== Number(id));
+            renderVentasArbol();
         }
     </script>
 </body>
