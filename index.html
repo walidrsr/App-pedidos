@@ -1464,7 +1464,7 @@
         async function eliminarDeudor(id) {
             if (!confirm("¿Confirmar que la deuda ha sido pagada/saldada?")) return;
 
-            const resultado = await borrarEnSupabase(STORE_DEUDORES, id);
+            const resultado = await borrarEnSupabase('deudores', id);
             if (!resultado.ok) {
                 alert("No se pudo eliminar la deuda: " + resultado.mensaje);
                 return;
@@ -1549,7 +1549,7 @@
             if (!confirm("¿Estás seguro de que deseas eliminar esta venta del historial?")) return;
 
             // Primero se borra en la base de datos; solo si de verdad se borró se quita de la pantalla
-            const resultado = await borrarEnSupabase(STORE_VENTAS, id);
+            const resultado = await borrarEnSupabase('ventas', id);
             if (!resultado.ok) {
                 alert("No se pudo eliminar la venta: " + resultado.mensaje);
                 return;
