@@ -47,6 +47,28 @@
 </head>
 <body class="min-h-screen font-sans flex flex-col antialiased selection:bg-meridena-sunLight selection:text-meridena-dark">
 
+    <!-- PANTALLA DE ACCESO -->
+    <div id="login-overlay" class="fixed inset-0 z-50 bg-[#FDFBF7] flex items-center justify-center px-4">
+        <div class="w-full max-w-sm bg-white p-6 rounded-2xl border border-slate-200 shadow-lg space-y-4">
+            <div class="text-center space-y-1">
+                <h2 class="font-brand font-bold text-2xl text-meridena-dark">La Merideña</h2>
+                <p class="text-sm text-slate-500">Entra para ver pedidos, stock y ventas.</p>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label for="login-email" class="block text-xs font-semibold text-meridena-dark mb-1">Correo</label>
+                    <input id="login-email" type="email" autocomplete="username" inputmode="email" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-meridena-sky">
+                </div>
+                <div>
+                    <label for="login-password" class="block text-xs font-semibold text-meridena-dark mb-1">Contraseña</label>
+                    <input id="login-password" type="password" autocomplete="current-password" onkeydown="if (event.key === 'Enter') iniciarSesion()" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-meridena-sky">
+                </div>
+                <p id="login-error" class="hidden text-sm text-red-600" role="alert"></p>
+                <button id="login-boton" onclick="iniciarSesion()" class="w-full py-3 rounded-xl bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-base">Entrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- HEADER MÓVIL COMPACTO -->
     <header class="bg-white border-b border-slate-200/85 shadow-xs sticky top-0 z-30">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
@@ -221,6 +243,9 @@
                 <div id="contenedor-lista-clientes" class="space-y-2.5"></div>
             </div>
         </div>
+        <div class="text-center pt-2">
+            <button onclick="cerrarSesion()" class="text-xs text-slate-500 underline">Cerrar sesión</button>
+        </div>
     </main>
     
 
@@ -291,7 +316,7 @@
             const inputFecha = document.getElementById('input-fecha-entrega');
             if (inputFecha) inputFecha.value = getFechaOffset(0);
             cargarBorradorPedido();
-            cargarDatosDesdeSupabase();
+            verificarSesion();
         });
 
         const SUPABASE_URL = 'https://clfzcabhguqnakiacuuj.supabase.co';
@@ -301,12 +326,72 @@
         const STORE_CLIENTES = "clientes";
 
 
-        // Canal con pequeño retraso para evitar conflictos de lectura simultánea
-        db.channel('public:base_completa')
-        .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-            setTimeout(() => { cargarDatosDesdeSupabase(); }, 300);
-        })
-        .subscribe();
+        // --- Acceso con correo y contraseña (Supabase Auth) ---
+        let canalRealtime = null;
+
+        function mostrarLogin(visible) {
+            document.getElementById('login-overlay').classList.toggle('hidden', !visible);
+        }
+
+        function iniciarRealtime() {
+            if (canalRealtime) return;
+            // Canal con pequeño retraso para evitar conflictos de lectura simultánea
+            canalRealtime = db.channel('public:base_completa')
+                .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+                    setTimeout(() => { cargarDatosDesdeSupabase(); }, 300);
+                })
+                .subscribe();
+        }
+
+        async function entrarALaApp() {
+            mostrarLogin(false);
+            await cargarDatosDesdeSupabase();
+            iniciarRealtime();
+        }
+
+        async function verificarSesion() {
+            const { data } = await db.auth.getSession();
+            if (data && data.session) {
+                entrarALaApp();
+            } else {
+                mostrarLogin(true);
+            }
+        }
+
+        async function iniciarSesion() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const aviso = document.getElementById('login-error');
+            const boton = document.getElementById('login-boton');
+            aviso.classList.add('hidden');
+            if (!email || !password) {
+                aviso.textContent = 'Escribe tu correo y tu contraseña.';
+                aviso.classList.remove('hidden');
+                return;
+            }
+            boton.disabled = true;
+            boton.textContent = 'Entrando...';
+            const { error } = await db.auth.signInWithPassword({ email, password });
+            boton.disabled = false;
+            boton.textContent = 'Entrar';
+            if (error) {
+                aviso.textContent = 'No se pudo entrar. Revisa el correo y la contraseña.';
+                aviso.classList.remove('hidden');
+                return;
+            }
+            document.getElementById('login-password').value = '';
+            entrarALaApp();
+        }
+
+        async function cerrarSesion() {
+            await db.auth.signOut();
+            location.reload();
+        }
+
+        // Si la sesión vence o se cierra, vuelve a mostrar el acceso
+        db.auth.onAuthStateChange((evento) => {
+            if (evento === 'SIGNED_OUT') mostrarLogin(true);
+        });
 
         let carritoActual = [];
         let listaPedidos = [];
@@ -361,89 +446,174 @@
         // ⭐ CORRECCIÓN 1: CARGA INICIAL ROBUSTA Y AUTO-POBLADO DE STOCK
        // ⭐ CARGA DE DATOS COMPLETA Y CORREGIDA PARA SINCRONIZAR DEUDORES Y PEDIDOS
        async function cargarDatosDesdeSupabase() {
-    try {
-        // 1. Cargar Stock
-        const { data: prodData, error: errProd } = await db.from('stock').select('*');
-        if (!errProd && prodData && prodData.length > 0) {
-            catalogoProductos = catalogoProductos.map(catItem => {
-                const found = prodData.find(p => Number(p.id) === Number(catItem.id));
-                return found ? {
-                    ...catItem,
-                    precio: Number(found.precio ?? catItem.precio),
-                    stockActual: Number(found.cantidad ?? catItem.stockActual)
-                } : catItem;
-            });
+            try {
+                // 1. Cargar Stock
+                const { data: prodData, error: errProd } = await db.from('stock').select('*');
+                if (!errProd && prodData && prodData.length > 0) {
+                    catalogoProductos = catalogoProductos.map(catItem => {
+                        const found = prodData.find(p => Number(p.id) === Number(catItem.id));
+                        return found ? {
+                            ...catItem,
+                            precio: Number(found.precio ?? catItem.precio),
+                            stockActual: Number(found.cantidad ?? catItem.stockActual)
+                        } : catItem;
+                    });
+                }
+
+                // 2. Cargar Deudores (id, nombreCliente, montoDeuda)
+                const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
+                if (!errDeu && deuData) {
+                    listaDeudores = deuData.map(d => ({
+                        id: d.id,
+                        cliente: d.nombreCliente || d.cliente,
+                        nombreCliente: d.nombreCliente || d.cliente,
+                        montoDeuda: Number(d.montoDeuda || 0),
+                        monto: Number(d.montoDeuda || 0),
+                        concepto: 'Deuda de pedido'
+                    }));
+                }
+
+                // 3. Cargar Pedidos (id, cliente, total, estado, stockDescontado, detalles)
+                const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
+                if (!errPed && pedData) {
+                    listaPedidos = pedData.map(p => {
+                        const totalP = Number(p.total || 0);
+
+                        return {
+                            id: p.id,
+                            cliente: p.cliente,
+                            total: totalP,
+                            estado: p.estado || 'pendiente',
+                            stockDescontado: p.stockDescontado || false,
+                            fechaEntrega: p.detalles?.fechaEntrega || '',
+                            notas: p.detalles?.notas || '',
+                            items: p.detalles?.items || [],
+                            horaRegistro: p.detalles?.horaRegistro || ''
+                        };
+                    });
+                }
+                // 3.1 Cargar clientes
+                const { data: cliData, error: errCli } = await db.from('clientes').select('*');
+                if (!errCli && cliData) {
+                    window.listaClientes = cliData.map(c => ({
+                        id: c.id,
+                        nombre: c.nombre
+                    }));
+                }
+
+                // 4. Cargar Ventas
+                const { data: ventData, error: errVent } = await db.from('ventas').select('*');
+                if (!errVent && ventData) {
+                    listaVentas = ventData.map(v => ({
+                        id: v.id,
+                        cliente: v.nombreCliente || v.cliente,
+                        total: Number(v.total || 0),
+                        metodo_pago: v.metodo_pago,
+                        fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
+                        fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
+                        items: v.detalles_venta?.items || [],
+                        horaRegistro: v.detalles_venta?.horaRegistro || ''
+                    }));
+                }
+
+                // 🟢 5. EJECUTAR TODOS LOS RENDERS PARA ACTUALIZAR LA INTERFAZ
+                if (typeof renderCatalogo === 'function') renderCatalogo();
+                if (typeof renderStockMovil === 'function') renderStockMovil();
+                if (typeof renderSelectProveedores === 'function') renderSelectProveedores();
+                if (typeof renderClientes === 'function') renderClientes();
+                if (typeof renderCarrito === 'function') renderCarrito();
+                if (typeof renderDeudores === 'function') renderDeudores();
+                if (typeof renderListadoGeneral === 'function') renderListadoGeneral();
+                if (typeof renderBadgeHoy === 'function') renderBadgeHoy();
+                if (typeof renderEntregasHoy === 'function') renderEntregasHoy();
+                if (typeof renderVentasArbol === 'function') renderVentasArbol();
+
+                if (typeof actualizarTodo === 'function') {
+                    actualizarTodo();
+                }
+
+                console.log("✅ Datos y renders sincronizados correctamente desde Supabase.");
+            } catch (err) {
+                console.error("Error al cargar datos desde Supabase:", err);
+            }
         }
 
-        // 2. Cargar Deudores (id, nombreCliente, montoDeuda)
-        const { data: deuData, error: errDeu } = await db.from('deudores').select('*');
-        if (!errDeu && deuData) {
-            listaDeudores = deuData.map(d => ({
-                id: d.id,
-                cliente: d.nombreCliente || d.cliente,
-                nombreCliente: d.nombreCliente || d.cliente,
-                montoDeuda: Number(d.montoDeuda || 0),
-                monto: Number(d.montoDeuda || 0),
-                concepto: 'Deuda de pedido'
-            }));
+        function initClienteAutocomplete() {
+        const inputCliente = document.getElementById('input-cliente');
+        if (!inputCliente) return;
+
+        // 🍏 EVITAR QUE SAFARI (iOS) INTERFIERA CON SU PROPIO AUTOCOMPLETADO
+        inputCliente.setAttribute('autocomplete', 'off');
+        inputCliente.setAttribute('autocorrect', 'off');
+        inputCliente.setAttribute('autocapitalize', 'off');
+
+        // Crear el contenedor flotante de sugerencias si no existe
+        let sugerenciasContainer = document.getElementById('sugerencias-clientes-div');
+        if (!sugerenciasContainer) {
+            sugerenciasContainer = document.createElement('div');
+            sugerenciasContainer.id = 'sugerencias-clientes-div';
+            sugerenciasContainer.className = 'absolute z-50 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto w-full text-xs';
+            
+            if (inputCliente.parentNode) {
+                inputCliente.parentNode.style.position = 'relative';
+                inputCliente.parentNode.appendChild(sugerenciasContainer);
+            }
         }
 
-        // 3. Cargar Pedidos (id, cliente, total, estado, stockDescontado, detalles)
-        const { data: pedData, error: errPed } = await db.from('pedidos').select('*');
-        if (!errPed && pedData) {
-            listaPedidos = pedData.map(p => {
-                const totalP = Number(p.total || 0);
+        // Evento al escribir en el campo de texto
+        inputCliente.addEventListener('input', function() {
+            const valor = this.value.toLowerCase().trim();
+            if (valor === '') {
+                sugerenciasContainer.classList.add('hidden');
+                return;
+            }
 
-                return {
-                    id: p.id,
-                    cliente: p.cliente,
-                    total: totalP,
-                    estado: p.estado || 'pendiente',
-                    stockDescontado: p.stockDescontado || false,
-                    fechaEntrega: p.detalles?.fechaEntrega || '',
-                    notas: p.detalles?.notas || '',
-                    items: p.detalles?.items || [],
-                    horaRegistro: p.detalles?.horaRegistro || ''
-                };
-            });
-        }
+            const listaC = window.listaClientes || [];
+            const filtrados = listaC.filter(c => c.nombre.toLowerCase().includes(valor));
 
-        // 4. Cargar Ventas
-        const { data: ventData, error: errVent } = await db.from('ventas').select('*');
-        if (!errVent && ventData) {
-            listaVentas = ventData.map(v => ({
-                id: v.id,
-                cliente: v.nombreCliente || v.cliente,
-                total: Number(v.total || 0),
-                metodo_pago: v.metodo_pago,
-                fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
-                fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
-                items: v.detalles_venta?.items || [],
-                horaRegistro: v.detalles_venta?.horaRegistro || ''
-            }));
-        }
+            if (filtrados.length === 0) {
+                sugerenciasContainer.innerHTML = `<div class="p-3 text-slate-400 italic">No registrado (se creará nuevo al guardar)</div>`;
+                sugerenciasContainer.classList.remove('hidden');
+                return;
+            }
 
-        // 🟢 5. EJECUTAR TODOS LOS RENDERS PARA ACTUALIZAR LA INTERFAZ
-        if (typeof renderCatalogo === 'function') renderCatalogo();
-        if (typeof renderStockMovil === 'function') renderStockMovil();
-        if (typeof renderSelectProveedores === 'function') renderSelectProveedores();
-        if (typeof renderClientes === 'function') renderClientes();
-        if (typeof renderCarrito === 'function') renderCarrito();
-        if (typeof renderDeudores === 'function') renderDeudores();
-        if (typeof renderListadoGeneral === 'function') renderListadoGeneral();
-        if (typeof renderBadgeHoy === 'function') renderBadgeHoy();
-        if (typeof renderEntregasHoy === 'function') renderEntregasHoy();
-        if (typeof renderVentasArbol === 'function') renderVentasArbol();
+            // 🍏 💡 CLAVE PARA IOS: Usamos ontouchstart y onmousedown para garantizar el toque en iPhone
+            sugerenciasContainer.innerHTML = filtrados.map(c => `
+                <div class="p-3 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-100 transition-colors" 
+                    ontouchstart="seleccionarClienteAutocomplete('${c.nombre.replace(/'/g, "\\'")}')"
+                    onmousedown="seleccionarClienteAutocomplete('${c.nombre.replace(/'/g, "\\'")}')">
+                    <span class="font-bold text-slate-700">${c.nombre}</span>
+                    <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-semibold text-[10px]">ID: #${c.id}</span>
+                </div>
+            `).join('');
+            sugerenciasContainer.classList.remove('hidden');
+        });
 
-        if (typeof actualizarTodo === 'function') {
-            actualizarTodo();
-        }
+        // Ocultar sugerencias al hacer clic o tocar fuera (compatible con iOS y Android)
+        const cerrarContenedor = function(e) {
+            if (!inputCliente.contains(e.target) && !sugerenciasContainer.contains(e.target)) {
+                sugerenciasContainer.classList.add('hidden');
+            }
+        };
 
-        console.log("✅ Datos y renders sincronizados correctamente desde Supabase.");
-    } catch (err) {
-        console.error("Error al cargar datos desde Supabase:", err);
+        document.addEventListener('click', cerrarContenedor);
+        document.addEventListener('touchend', cerrarContenedor);
     }
-}
+
+    function seleccionarClienteAutocomplete(nombre) {
+        const inputCliente = document.getElementById('input-cliente');
+        if (inputCliente) {
+            inputCliente.value = nombre;
+        }
+        const sugerenciasContainer = document.getElementById('sugerencias-clientes-div');
+        if (sugerenciasContainer) {
+            sugerenciasContainer.classList.add('hidden');
+        }
+    }
+
+// Llama a esto al cargar tu aplicación (ej: junto a tus otros init o renders)
+// initClienteAutocomplete();
+
 
         // CORRECCIÓN 2: GUARDAR PRECIO INDIVIDUAL DE FORMA PERMANENTE
         async function guardarPrecioProducto(productoId) {
@@ -685,7 +855,7 @@
             if (window.lucide) lucide.createIcons();
         }
 
-       async function guardarPedido() {
+        async function guardarPedido() {
             const inputClienteEl = document.getElementById('input-cliente');
             const inputFechaEl = document.getElementById('input-fecha-entrega');
             const inputNotasEl = document.getElementById('input-notas');
@@ -711,7 +881,26 @@
                     return; // Detiene el guardado y protege el inventario
                 }
             }
+            // 👤 2. VERIFICAR Y REGISTRAR CLIENTE AUTOMÁTICAMENTE SI NO EXISTE
+            const clienteLimpio = String(cliente).trim();
+            const listaC = window.listaClientes || [];
+            const clienteExistente = listaC.find(c => c.nombre.toLowerCase() === clienteLimpio.toLowerCase());
 
+            if (!clienteExistente) {
+                const { data: nuevoClienteIns, error: errCliIns } = await db.from('clientes').insert([{
+                    nombre: clienteLimpio
+                }]).select();
+
+                if (errCliIns) {
+                    console.error("Error al registrar cliente automáticamente:", errCliIns.message);
+                } else if (nuevoClienteIns && nuevoClienteIns.length > 0) {
+                    // Añadir localmente para mantener la lista al día
+                    listaC.push({
+                        id: nuevoClienteIns[0].id,
+                        nombre: nuevoClienteIns[0].nombre
+                    });
+                }
+            }
             let totalMonto = 0;
             const itemsConPrecio = carritoActual.map(item => {
                 const prodCat = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
@@ -856,120 +1045,6 @@
         function cerrarModalCompletar() {
                 document.getElementById('modal-completar').classList.add('hidden');
         }
-
-        async function gestionarPedidoAccion(tipoAccion) {
-            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
-            if (pedidoIndex === -1) {
-                alert("No se encontró el pedido en proceso.");
-                return;
-            }
-            const pedido = listaPedidos[pedidoIndex];
-            
-            // 1. Obtener y validar el monto ingresado
-            const inputMontoEl = document.getElementById('modal-input-monto-pagado');
-            const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
-
-            if (montoIngresado <= 0) {
-                alert("Por favor, ingresa un monto válido mayor a 0 para registrar el pago.");
-                return;
-            }
-
-            const totalPedido = Number(pedido.total || 0);
-            
-            // 2. Verificamos si este pedido ya tiene un registro en la tabla 'deudores'
-            const { data: deudorExistenteArr } = await db.from('deudores').select('*').eq('id', Number(pedido.id));
-            
-            // Si ya estaba en deudores, su deuda actual es montoDeuda. Si no, su deuda inicial es el total del pedido.
-            const deudaActual = (deudorExistenteArr && deudorExistenteArr.length > 0) 
-                ? Number(deudorExistenteArr[0].montoDeuda) 
-                : totalPedido;
-
-            const nuevoSaldoPendiente = Math.max(0, deudaActual - montoIngresado);
-            const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
-
-            // 3. Descontar stock si aún no se había hecho
-            if (!pedido.stockDescontado) {
-                for (const item of pedido.items) {
-                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                    if (prod) {
-                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                        await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
-                    }
-                }
-                pedido.stockDescontado = true;
-                await db.from('pedidos').update({ stockDescontado: true }).eq('id', Number(pedido.id));
-            }
-
-            // 4. CASO A: Pago Total (El saldo restante es 0)
-            if (nuevoSaldoPendiente === 0) {
-                // Asegurar cliente en tabla 'clientes'
-                const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
-                if (!clienteCheck || clienteCheck.length === 0) {
-                    await db.from('clientes').insert([{
-                        nombre: nombreClienteLimpio,
-                        telefono: 'Sin teléfono'
-                    }]);
-                }
-
-                // Registrar venta en tabla 'ventas' (id, total, metodo_pago, nombreCliente, detalles_venta)
-                const datosVentaSupabase = {
-                    id: Number(pedido.id),
-                    total: Number(totalPedido),
-                    metodo_pago: 'Pagado 100%',
-                    nombreCliente: nombreClienteLimpio,
-                    detalles_venta: {
-                        items: pedido.items || [],
-                        horaRegistro: pedido.horaRegistro || ''
-                    }
-                };
-
-                const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
-                if (errVenta) {
-                    alert("Error al guardar la venta: " + errVenta.message);
-                    return;
-                }
-
-                // Borrar el pedido completado de la tabla 'pedidos'
-                await db.from('pedidos').delete().eq('id', Number(pedido.id));
-
-                // Limpiar de la tabla 'deudores' usando el ID del pedido
-                await db.from('deudores').delete().eq('id', Number(pedido.id));
-
-                alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada con éxito.`);
-            } 
-            // 5. CASO B: Pago Parcial (Queda saldo pendiente)
-            else {
-                if (deudorExistenteArr && deudorExistenteArr.length > 0) {
-                    // Actualizamos el montoDeuda existente en la tabla 'deudores'
-                    await db.from('deudores').update({
-                        montoDeuda: nuevoSaldoPendiente
-                    }).eq('id', Number(pedido.id));
-                } else {
-                    // Insertamos nuevo deudor vinculado al ID del pedido (id, nombreCliente, montoDeuda)
-                    const nuevoDeudor = {
-                        id: Number(pedido.id),
-                        nombreCliente: nombreClienteLimpio,
-                        montoDeuda: nuevoSaldoPendiente
-                    };
-                    await db.from('deudores').insert([nuevoDeudor]);
-                }
-
-                alert(`💵 Pago parcial de $${montoIngresado} registrado. Queda un saldo pendiente de $${nuevoSaldoPendiente}.`);
-            }
-
-            // Limpiar input y cerrar modal
-            if (inputMontoEl) inputMontoEl.value = '';
-            const modalGestion = document.getElementById('modal-gestionar-pedido');
-            if (modalGestion) modalGestion.classList.add('hidden');
-
-            // Recargar datos en la app para reflejar los cambios en pantalla
-            await cargarDatosDesdeSupabase();
-            if (typeof actualizarTodo === 'function') {
-                actualizarTodo();
-            }
-        }
-        
-                        
 
         function abrirModalAgregarProductos(id) {
             const pedido = listaPedidos.find(p => Number(p.id) === Number(id));
@@ -1206,101 +1281,93 @@
 
     
         async function gestionarPedidoAccion(tipoAccion) {
-    const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
-    if (pedidoIndex === -1) {
-        alert("No se encontró el pedido en proceso.");
-        return;
-    }
-
-    const pedido = listaPedidos[pedidoIndex];
-    const inputMontoEl = document.getElementById('modal-input-monto-pagado');
-    const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
-
-    if (montoIngresado <= 0) {
-        alert("Por favor, ingresa un monto válido mayor a 0 para registrar el pago.");
-        return;
-    }
-
-    const totalPedido = Number(pedido.total || 0);
-    const montoAnteriorTotal = Number(pedido.montoPagado || 0);
-    const nuevoMontoPagadoTotal = montoAnteriorTotal + montoIngresado;
-    const saldoPendienteRestante = Math.max(0, totalPedido - nuevoMontoPagadoTotal);
-    const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
-
-    pedido.montoPagado = nuevoMontoPagadoTotal;
-
-    // Descontar stock si aún no se había hecho
-    if (!pedido.stockDescontado) {
-        for (const item of pedido.items) {
-            const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-            if (prod) {
-                prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
+            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+            if (pedidoIndex === -1) {
+                alert("No se encontró el pedido en proceso.");
+                return;
             }
-        }
-        pedido.stockDescontado = true;
-    }
 
-    // SI EL SALDO LLEGA A 0 O SE SELECCIONÓ ENTREGAR Y COBRAR TOTAL
-    if (saldoPendienteRestante === 0 || tipoAccion === 'entregar-total') {
-        const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
-        if (!clienteCheck || clienteCheck.length === 0) {
-            await db.from('clientes').insert([{ nombre: nombreClienteLimpio, telefono: 'Sin teléfono' }]);
-        }
+            const pedido = listaPedidos[pedidoIndex];
+            const inputMontoEl = document.getElementById('modal-input-monto-pagado');
+            const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
 
-        const datosVentaSupabase = {
-            id: Number(pedido.id),
-            total: Number(totalPedido),
-            metodo_pago: nuevoMontoPagadoTotal >= totalPedido ? 'Pagado 100%' : 'Pago Parcial Saldado',
-            nombreCliente: nombreClienteLimpio,
-            detalles_venta: {
-                items: pedido.items || [],
-                horaRegistro: pedido.horaRegistro || ''
+            if (montoIngresado <= 0) {
+                alert("Por favor, ingresa un monto válido mayor a 0 para registrar el pago.");
+                return;
             }
-        };
 
-        const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
-        if (errVenta) {
-            alert("Error al guardar la venta: " + errVenta.message);
-            return;
+            const totalPedido = Number(pedido.total || 0);
+            const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
+
+            // La deuda guardada en la tabla 'deudores' es la fuente de verdad: sobrevive a recargas.
+            // Si el pedido todavía no tiene fila ahí, no ha recibido abonos y debe el total.
+            const { data: filasDeuda, error: errLeerDeuda } = await db.from('deudores')
+                .select('montoDeuda')
+                .eq('id', Number(pedido.id));
+            if (errLeerDeuda) {
+                alert("No se pudo leer la deuda del pedido: " + errLeerDeuda.message);
+                return;
+            }
+            const saldoAnterior = (filasDeuda && filasDeuda.length > 0)
+                ? Number(filasDeuda[0].montoDeuda || 0)
+                : totalPedido;
+            const saldoPendienteRestante = Math.max(0, saldoAnterior - montoIngresado);
+
+            // El stock ya se descuenta al guardar el pedido (guardarPedido), por eso aquí no se toca.
+
+            // SI EL SALDO LLEGA A 0 O SE SELECCIONÓ ENTREGAR Y COBRAR
+            if (saldoPendienteRestante === 0 || tipoAccion === 'entregar-total') {
+                const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
+                if (!clienteCheck || clienteCheck.length === 0) {
+                    await db.from('clientes').insert([{ nombre: nombreClienteLimpio, telefono: 'Sin teléfono' }]);
+                }
+
+                const datosVentaSupabase = {
+                    id: Number(pedido.id),
+                    total: Number(totalPedido),
+                    metodo_pago: saldoPendienteRestante === 0 ? 'Pagado 100%' : 'Pago Parcial Saldado',
+                    nombreCliente: nombreClienteLimpio,
+                    detalles_venta: {
+                        items: pedido.items || [],
+                        horaRegistro: pedido.horaRegistro || ''
+                    }
+                };
+
+                const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
+                if (errVenta) {
+                    alert("Error al guardar la venta: " + errVenta.message);
+                    return;
+                }
+
+                await db.from('pedidos').delete().eq('id', Number(pedido.id));
+                await db.from('deudores').delete().eq('id', Number(pedido.id));
+                listaPedidos.splice(pedidoIndex, 1);
+                alert(`🎉 ¡Pedido #${pedido.id} completado y movido al historial de ventas!`);
+            }
+            // CASO: PAGO PARCIAL (queda saldo pendiente)
+            else {
+                const datosDeudor = {
+                    id: Number(pedido.id),
+                    nombreCliente: nombreClienteLimpio,
+                    montoDeuda: Number(saldoPendienteRestante)
+                };
+
+                const { error: errDeudor } = await db.from('deudores').upsert(datosDeudor, { onConflict: 'id' });
+                if (errDeudor) {
+                    console.error("Error al guardar en deudores:", errDeudor.message);
+                    alert("Error al registrar deuda en Supabase: " + errDeudor.message);
+                    return;
+                }
+
+                alert(`💵 Pago parcial registrado. Abonó: $${montoIngresado.toLocaleString()}. Nuevo debe: $${saldoPendienteRestante.toLocaleString()}`);
+            }
+
+            if (inputMontoEl) inputMontoEl.value = '';
+            document.getElementById('modal-completar').classList.add('hidden');
+
+            await cargarDatosDesdeSupabase();
+            if (typeof actualizarTodo === 'function') actualizarTodo();
         }
-
-        await db.from('pedidos').delete().eq('id', Number(pedido.id));
-        await db.from('deudores').delete().eq('id', Number(pedido.id));
-        listaPedidos.splice(pedidoIndex, 1);
-        alert(`🎉 ¡Pedido #${pedido.id} completado y movido al historial de ventas!`);
-    } 
-    // CASO: PAGO PARCIAL (Queda saldo pendiente)
-    else {
-        await db.from('pedidos').update({
-            montoPagado: Number(nuevoMontoPagadoTotal),
-            stockDescontado: true
-        }).eq('id', Number(pedido.id));
-
-        // ⭐ USANDO EXACTAMENTE LAS COLUMNAS DE SUPABASE: id, nombreCliente, montoDeuda
-        const datosDeudor = {
-            id: Number(pedido.id),
-            nombreCliente: nombreClienteLimpio,
-            montoDeuda: Number(saldoPendienteRestante)
-        };
-
-        const { error: errDeudor } = await db.from('deudores').upsert(datosDeudor, { onConflict: 'id' });
-        
-        if (errDeudor) {
-            console.error("Error al guardar en deudores:", errDeudor.message);
-            alert("Error al registrar deuda en Supabase: " + errDeudor.message);
-            return;
-        }
-
-        alert(`💵 Pago parcial registrado. Abonó: $${montoIngresado.toLocaleString()}. Nuevo debe: $${saldoPendienteRestante.toLocaleString()}`);
-    }
-
-    if (inputMontoEl) inputMontoEl.value = '';
-    document.getElementById('modal-completar').classList.add('hidden');
-
-    await cargarDatosDesdeSupabase();
-    if (typeof actualizarTodo === 'function') actualizarTodo();
-}
 
 
         // ⭐ 2. CORRECCIÓN EN RENDERIZADO DE DEUDORES Y BOTÓN SALDAR (Pasa a ventas)
