@@ -858,116 +858,116 @@
         }
 
         async function gestionarPedidoAccion(tipoAccion) {
-    const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
-    if (pedidoIndex === -1) {
-        alert("No se encontró el pedido en proceso.");
-        return;
-    }
-    const pedido = listaPedidos[pedidoIndex];
-    
-    // 1. Obtener y validar el monto ingresado
-    const inputMontoEl = document.getElementById('modal-input-monto-pagado');
-    const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
+            const pedidoIndex = listaPedidos.findIndex(p => Number(p.id) === Number(pedidoEnProcesoId));
+            if (pedidoIndex === -1) {
+                alert("No se encontró el pedido en proceso.");
+                return;
+            }
+            const pedido = listaPedidos[pedidoIndex];
+            
+            // 1. Obtener y validar el monto ingresado
+            const inputMontoEl = document.getElementById('modal-input-monto-pagado');
+            const montoIngresado = inputMontoEl ? parseFloat(inputMontoEl.value) || 0 : 0;
 
-    if (montoIngresado <= 0) {
-        alert("Por favor, ingresa un monto válido mayor a 0 para registrar el pago.");
-        return;
-    }
+            if (montoIngresado <= 0) {
+                alert("Por favor, ingresa un monto válido mayor a 0 para registrar el pago.");
+                return;
+            }
 
-    const totalPedido = Number(pedido.total || 0);
-    
-    // 2. Verificamos si este pedido ya tiene un registro en la tabla 'deudores'
-    const { data: deudorExistenteArr } = await db.from('deudores').select('*').eq('id', Number(pedido.id));
-    
-    // Si ya estaba en deudores, su deuda actual es montoDeuda. Si no, su deuda inicial es el total del pedido.
-    const deudaActual = (deudorExistenteArr && deudorExistenteArr.length > 0) 
-        ? Number(deudorExistenteArr[0].montoDeuda) 
-        : totalPedido;
+            const totalPedido = Number(pedido.total || 0);
+            
+            // 2. Verificamos si este pedido ya tiene un registro en la tabla 'deudores'
+            const { data: deudorExistenteArr } = await db.from('deudores').select('*').eq('id', Number(pedido.id));
+            
+            // Si ya estaba en deudores, su deuda actual es montoDeuda. Si no, su deuda inicial es el total del pedido.
+            const deudaActual = (deudorExistenteArr && deudorExistenteArr.length > 0) 
+                ? Number(deudorExistenteArr[0].montoDeuda) 
+                : totalPedido;
 
-    const nuevoSaldoPendiente = Math.max(0, deudaActual - montoIngresado);
-    const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
+            const nuevoSaldoPendiente = Math.max(0, deudaActual - montoIngresado);
+            const nombreClienteLimpio = String(pedido.cliente || "Cliente General").trim();
 
-    // 3. Descontar stock si aún no se había hecho
-    if (!pedido.stockDescontado) {
-        for (const item of pedido.items) {
-            const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-            if (prod) {
-                prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
+            // 3. Descontar stock si aún no se había hecho
+            if (!pedido.stockDescontado) {
+                for (const item of pedido.items) {
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
+                    if (prod) {
+                        prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
+                        await db.from('stock').update({ cantidad: Number(prod.stockActual) }).eq('id', Number(prod.id));
+                    }
+                }
+                pedido.stockDescontado = true;
+                await db.from('pedidos').update({ stockDescontado: true }).eq('id', Number(pedido.id));
+            }
+
+            // 4. CASO A: Pago Total (El saldo restante es 0)
+            if (nuevoSaldoPendiente === 0) {
+                // Asegurar cliente en tabla 'clientes'
+                const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
+                if (!clienteCheck || clienteCheck.length === 0) {
+                    await db.from('clientes').insert([{
+                        nombre: nombreClienteLimpio,
+                        telefono: 'Sin teléfono'
+                    }]);
+                }
+
+                // Registrar venta en tabla 'ventas' (id, total, metodo_pago, nombreCliente, detalles_venta)
+                const datosVentaSupabase = {
+                    id: Number(pedido.id),
+                    total: Number(totalPedido),
+                    metodo_pago: 'Pagado 100%',
+                    nombreCliente: nombreClienteLimpio,
+                    detalles_venta: {
+                        items: pedido.items || [],
+                        horaRegistro: pedido.horaRegistro || ''
+                    }
+                };
+
+                const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
+                if (errVenta) {
+                    alert("Error al guardar la venta: " + errVenta.message);
+                    return;
+                }
+
+                // Borrar el pedido completado de la tabla 'pedidos'
+                await db.from('pedidos').delete().eq('id', Number(pedido.id));
+
+                // Limpiar de la tabla 'deudores' usando el ID del pedido
+                await db.from('deudores').delete().eq('id', Number(pedido.id));
+
+                alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada con éxito.`);
+            } 
+            // 5. CASO B: Pago Parcial (Queda saldo pendiente)
+            else {
+                if (deudorExistenteArr && deudorExistenteArr.length > 0) {
+                    // Actualizamos el montoDeuda existente en la tabla 'deudores'
+                    await db.from('deudores').update({
+                        montoDeuda: nuevoSaldoPendiente
+                    }).eq('id', Number(pedido.id));
+                } else {
+                    // Insertamos nuevo deudor vinculado al ID del pedido (id, nombreCliente, montoDeuda)
+                    const nuevoDeudor = {
+                        id: Number(pedido.id),
+                        nombreCliente: nombreClienteLimpio,
+                        montoDeuda: nuevoSaldoPendiente
+                    };
+                    await db.from('deudores').insert([nuevoDeudor]);
+                }
+
+                alert(`💵 Pago parcial de $${montoIngresado} registrado. Queda un saldo pendiente de $${nuevoSaldoPendiente}.`);
+            }
+
+            // Limpiar input y cerrar modal
+            if (inputMontoEl) inputMontoEl.value = '';
+            const modalGestion = document.getElementById('modal-gestionar-pedido');
+            if (modalGestion) modalGestion.classList.add('hidden');
+
+            // Recargar datos en la app para reflejar los cambios en pantalla
+            await cargarDatosDesdeSupabase();
+            if (typeof actualizarTodo === 'function') {
+                actualizarTodo();
             }
         }
-        pedido.stockDescontado = true;
-        await db.from('pedidos').update({ stockDescontado: true }).eq('id', Number(pedido.id));
-    }
-
-    // 4. CASO A: Pago Total (El saldo restante es 0)
-    if (nuevoSaldoPendiente === 0) {
-        // Asegurar cliente en tabla 'clientes'
-        const { data: clienteCheck } = await db.from('clientes').select('*').ilike('nombre', nombreClienteLimpio);
-        if (!clienteCheck || clienteCheck.length === 0) {
-            await db.from('clientes').insert([{
-                nombre: nombreClienteLimpio,
-                telefono: 'Sin teléfono'
-            }]);
-        }
-
-        // Registrar venta en tabla 'ventas' (id, total, metodo_pago, nombreCliente, detalles_venta)
-        const datosVentaSupabase = {
-            id: Number(pedido.id),
-            total: Number(totalPedido),
-            metodo_pago: 'Pagado 100%',
-            nombreCliente: nombreClienteLimpio,
-            detalles_venta: {
-                items: pedido.items || [],
-                horaRegistro: pedido.horaRegistro || ''
-            }
-        };
-
-        const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
-        if (errVenta) {
-            alert("Error al guardar la venta: " + errVenta.message);
-            return;
-        }
-
-        // Borrar el pedido completado de la tabla 'pedidos'
-        await db.from('pedidos').delete().eq('id', Number(pedido.id));
-
-        // Limpiar de la tabla 'deudores' usando el ID del pedido
-        await db.from('deudores').delete().eq('id', Number(pedido.id));
-
-        alert(`🎉 ¡Pago total completado! Venta #${pedido.id} guardada con éxito.`);
-    } 
-    // 5. CASO B: Pago Parcial (Queda saldo pendiente)
-    else {
-        if (deudorExistenteArr && deudorExistenteArr.length > 0) {
-            // Actualizamos el montoDeuda existente en la tabla 'deudores'
-            await db.from('deudores').update({
-                montoDeuda: nuevoSaldoPendiente
-            }).eq('id', Number(pedido.id));
-        } else {
-            // Insertamos nuevo deudor vinculado al ID del pedido (id, nombreCliente, montoDeuda)
-            const nuevoDeudor = {
-                id: Number(pedido.id),
-                nombreCliente: nombreClienteLimpio,
-                montoDeuda: nuevoSaldoPendiente
-            };
-            await db.from('deudores').insert([nuevoDeudor]);
-        }
-
-        alert(`💵 Pago parcial de $${montoIngresado} registrado. Queda un saldo pendiente de $${nuevoSaldoPendiente}.`);
-    }
-
-    // Limpiar input y cerrar modal
-    if (inputMontoEl) inputMontoEl.value = '';
-    const modalGestion = document.getElementById('modal-gestionar-pedido');
-    if (modalGestion) modalGestion.classList.add('hidden');
-
-    // Recargar datos en la app para reflejar los cambios en pantalla
-    await cargarDatosDesdeSupabase();
-    if (typeof actualizarTodo === 'function') {
-        actualizarTodo();
-    }
-}
         
                         
 
@@ -1168,14 +1168,38 @@
         async function registrarPedidoProveedor() {
             const prodId = parseInt(document.getElementById('prov-producto-select').value);
             const cantidad = parseInt(document.getElementById('prov-cantidad').value);
-            if (isNaN(cantidad) || cantidad <= 0) return alert("Ingresa una cantidad válida.");
+            
+            if (isNaN(cantidad) || cantidad <= 0) {
+                alert("Ingresa una cantidad válida.");
+                return;
+            }
+            
             const prod = catalogoProductos.find(p => Number(p.id) === prodId);
             if (prod) {
+                // 1. Sumar al stock local temporalmente
                 prod.stockActual += cantidad;
-                await guardarEnSupabase(STORE_STOCK, catalogoProductos);
+
+                // 2. 🟢 Actualizar directamente en la tabla 'stock' de Supabase
+                const { error } = await db.from('stock')
+                    .update({ cantidad: Number(prod.stockActual) })
+                    .eq('id', Number(prod.id));
+
+                if (error) {
+                    alert("Error al actualizar el stock en Supabase: " + error.message);
+                    return;
+                }
+
+                // 3. Limpiar los campos del formulario
                 document.getElementById('prov-cantidad').value = '';
-                document.getElementById('prov-nombre').value = '';
+                const inputNombre = document.getElementById('prov-nombre');
+                if (inputNombre) inputNombre.value = '';
+
+                // 4. Sincronizar y redibujar la interfaz de inmediato
                 await cargarDatosDesdeSupabase();
+                
+                if (typeof renderCatalogo === 'function') renderCatalogo();
+                if (typeof renderStockMovil === 'function') renderStockMovil();
+
                 alert(`¡Stock actualizado! Se sumaron ${cantidad} unidades de ${prod.nombre}.`);
             }
         }
