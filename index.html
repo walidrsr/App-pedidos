@@ -167,6 +167,7 @@
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
                 <h2 class="font-brand font-bold text-base text-slate-800 mb-1">Todos los Pedidos</h2>
                 <p class="text-[11px] text-slate-400 mb-3">Historial completo. Puedes cambiar fechas, editar productos o gestionar cobros.</p>
+                <input id="buscar-pedido" type="search" placeholder="Buscar por nombre del cliente..." autocomplete="off" oninput="renderListadoGeneral()" class="w-full mb-3 px-3 py-2.5 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-meridena-sky">
                 <div id="contenedor-listado-pedidos" class="space-y-3"></div>
             </div>
         </div>
@@ -1164,6 +1165,11 @@
             if (window.lucide) lucide.createIcons();
         }
 
+    // Para buscar sin importar mayúsculas ni tildes (José = jose)
+    function normalizarTexto(texto) {
+        return String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+
     function renderListadoGeneral() {
     const contenedor = document.getElementById('contenedor-listado-pedidos');
     if (!contenedor) return;
@@ -1171,7 +1177,17 @@
         contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sin pedidos registrados.</p>`;
         return;
     }
-    contenedor.innerHTML = listaPedidos.map(p => {
+    // Filtro del buscador (si está vacío, se muestran todos los pedidos)
+    const buscador = document.getElementById('buscar-pedido');
+    const textoBusqueda = normalizarTexto(buscador ? buscador.value : '');
+    const pedidosVisibles = textoBusqueda
+        ? listaPedidos.filter(p => normalizarTexto(p.cliente).includes(textoBusqueda))
+        : listaPedidos;
+    if (pedidosVisibles.length === 0) {
+        contenedor.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">No hay pedidos que coincidan con la búsqueda.</p>`;
+        return;
+    }
+    contenedor.innerHTML = pedidosVisibles.map(p => {
         const total = Number(p.total || 0);
         
         // 🔍 Buscamos si este pedido tiene deuda activa en la tabla 'deudores' (vinculada por id)
