@@ -69,6 +69,41 @@
         </div>
     </div>
 
+    <!-- REGISTRO DE PEDIDOS A PROVEEDORES (solo lectura) -->
+    <div id="registro-proveedores-overlay" class="hidden fixed inset-0 z-[45] bg-[#FDFBF7] overflow-y-auto">
+        <div class="max-w-md mx-auto px-4 py-4 space-y-3">
+            <button type="button" onclick="cerrarRegistroProveedores()" class="text-sm font-bold text-meridena-sky py-1">‹ Volver al stock</button>
+            <div>
+                <h2 class="font-brand font-bold text-xl text-meridena-dark">Pedidos a proveedores</h2>
+                <p class="text-xs text-slate-500">Todo lo que se pidió, ordenado por fecha. Es un registro de solo lectura: no se puede modificar ni borrar.</p>
+            </div>
+            <input id="registro-buscar" type="search" placeholder="Buscar por producto o proveedor..." autocomplete="off" oninput="renderRegistroProveedores()" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-base focus:outline-none focus:ring-2 focus:ring-meridena-sky">
+            <select id="registro-periodo" onchange="renderRegistroProveedores()" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-base bg-white focus:outline-none focus:ring-2 focus:ring-meridena-sky">
+                <option value="todo">Todas las fechas</option>
+                <option value="7">Últimos 7 días</option>
+                <option value="mes">Este mes</option>
+                <option value="mes_anterior">Mes pasado</option>
+            </select>
+            <div id="registro-resumen"></div>
+            <div id="registro-lista" class="space-y-4 pb-8"></div>
+        </div>
+    </div>
+
+    <!-- PONER FECHA A VENTAS ANTIGUAS -->
+    <div id="fechas-ventas-overlay" class="hidden fixed inset-0 z-[45] bg-[#FDFBF7] overflow-y-auto">
+        <div class="max-w-md mx-auto px-4 pt-4 space-y-3">
+            <button type="button" onclick="cerrarFechasVentas()" class="text-sm font-bold text-meridena-sky py-1">‹ Volver a ventas</button>
+            <div>
+                <h2 class="font-brand font-bold text-xl text-meridena-dark">Fecha de ventas antiguas</h2>
+                <p class="text-xs text-slate-500">Estas ventas se hicieron antes de que la app guardara la fecha. Elige cuándo se hizo cada una. Están ordenadas de la más vieja a la más nueva: al elegir una fecha, las siguientes se rellenan con la misma y puedes cambiarlas. La fecha se puede poner una sola vez.</p>
+            </div>
+            <div id="fechas-ventas-lista" class="space-y-2"></div>
+            <div class="sticky bottom-0 bg-[#FDFBF7] py-3 border-t border-slate-200">
+                <button type="button" onclick="guardarFechasVentas()" class="w-full py-3 rounded-xl bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-base">Guardar fechas</button>
+            </div>
+        </div>
+    </div>
+
     <!-- HEADER MÓVIL COMPACTO -->
     <header class="bg-white border-b border-slate-200/85 shadow-xs sticky top-0 z-30">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
@@ -187,6 +222,9 @@
                     <button onclick="registrarPedidoProveedor()" class="w-full py-2 bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-xs rounded-xl transition">
                         + Registrar Pedido & Actualizar Stock
                     </button>
+                    <button type="button" onclick="abrirRegistroProveedores()" class="w-full py-2.5 bg-white border border-meridena-sky text-meridena-sky hover:bg-slate-50 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5">
+                        <i data-lucide="clipboard-list" class="w-4 h-4"></i> Ver registro de pedidos a proveedores
+                    </button>
                 </div>
             </div>
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
@@ -201,6 +239,15 @@
 
         <!-- SECCIÓN 5: VENTAS -->
         <div id="view-ventas" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
+                    <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i> Resumen de ventas
+                </h2>
+                <div id="panel-ventas-tarjetas" class="grid grid-cols-3 gap-2"></div>
+                <div id="panel-ventas-navegador"></div>
+                <div id="panel-ventas-contenido" class="space-y-3"></div>
+                <div id="panel-ventas-historico" class="space-y-2"></div>
+            </div>
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                     <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
@@ -398,6 +445,9 @@
         let listaPedidos = [];
         let listaDeudores = [];
         let listaVentas = [];
+        let registroProveedores = [];
+        let panelVentasVista = 'dia';
+        let panelVentasAncla = new Date();
         let listaClientes = [];
         let pedidoEnProcesoId = null;
         let pedidoEnEdicionId = null;
@@ -416,8 +466,7 @@
             { id: 11, nombre: "Yogurt Natural Frutilla", emoji: "🍓", stockActual: 0, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
             { id: 12, nombre: "Yogurt Natural Ananá", emoji: "🍍", stockActual: 0, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
             { id: 13, nombre: "Yogurt Natural Durazno", emoji: "🍑", stockActual: 0, precio: 2800, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 14, nombre: "Yogurt Natural Arándanos", emoji: "🫐", stockActual: 0, precio: 3000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] },
-            { id: 15, nombre: "Golfeado", emoji: "🍯", stockActual: 0, precio: 6500, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] }
+            { id: 14, nombre: "Yogurt Natural Arándanos", emoji: "🫐", stockActual: 0, precio: 3000, rapidos: [{ label: "1 Un.", cant: 1, text: "1 unidad" }, { label: "2 Un.", cant: 2, text: "2 unidades" }] }
         ];
 
     
@@ -524,7 +573,7 @@
                         total: Number(v.total || 0),
                         metodo_pago: v.metodo_pago,
                         fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
-                        fechaVenta: v.created_at ? new Date(v.created_at).getTime() : Date.now(),
+                        fechaVenta: v.created_at ? new Date(v.created_at).getTime() : null,
                         items: v.detalles_venta?.items || [],
                         horaRegistro: v.detalles_venta?.horaRegistro || ''
                     }));
@@ -541,6 +590,7 @@
                 if (typeof renderBadgeHoy === 'function') renderBadgeHoy();
                 if (typeof renderEntregasHoy === 'function') renderEntregasHoy();
                 if (typeof renderVentasArbol === 'function') renderVentasArbol();
+                if (typeof renderPanelVentas === 'function') renderPanelVentas();
 
                 if (typeof actualizarTodo === 'function') {
                     actualizarTodo();
@@ -743,27 +793,24 @@
 
         async function ajustarStock(id, cambio) {
             const prod = catalogoProductos.find(p => Number(p.id) === Number(id));
-            if (prod) {
-                // 1. Modificamos el valor localmente
-                prod.stockActual = Math.max(0, Number(prod.stockActual) + cambio);
+            if (!prod) return;
 
-                // 2. ⭐ Actualizamos directamente la columna 'cantidad' en la tabla 'stock' de Supabase
-                const { error } = await db
-                    .from('stock')
-                    .update({ cantidad: Number(prod.stockActual) })
-                    .eq('id', Number(id));
+            // El cambio lo aplica la base de datos (atómico y registrado en el libro de movimientos)
+            const { data, error } = await db.rpc('ajustar_stock', {
+                p_producto: Number(id),
+                p_delta: Number(cambio)
+            });
 
-                if (error) {
-                    console.error("Error al actualizar el stock en Supabase:", error.message);
-                    alert("No se pudo guardar el stock en la nube: " + error.message);
-                } else {
-                    console.log(`📦 Stock del producto #${id} actualizado a ${prod.stockActual} en Supabase.`);
-                }
-
-                // 3. Refrescamos la interfaz visual
-                renderStockMovil();
-                renderCatalogo();
+            if (error) {
+                console.error("Error al ajustar el stock en Supabase:", error.message);
+                alert("No se pudo ajustar el stock: " + error.message);
+                return;
             }
+
+            // Se muestra el stock real que devuelve la base de datos
+            prod.stockActual = Number(data);
+            renderStockMovil();
+            renderCatalogo();
         }
 
         function agregarAlCarrito(productoId, cantidad, textoDetalle) {
@@ -888,9 +935,25 @@
             if (!fechaEntrega) return alert("Selecciona la fecha de entrega.");
 
             // 🛑 VALIDACIÓN DE STOCK ESTRICTA
-            for (let item of carritoActual) {
-                const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-                if (prod && Number(item.cantidad) > Number(prod.stockActual)) {
+            // Se suma por producto, y al editar se cuenta lo que el pedido ya tenía reservado.
+            // (La base de datos vuelve a validarlo, así que esto solo avisa antes.)
+            const pedidoPrevio = pedidoEnEdicionId !== null
+                ? listaPedidos.find(p => Number(p.id) === Number(pedidoEnEdicionId))
+                : null;
+            const pedidoPorProducto = {};
+            for (const item of carritoActual) {
+                const clave = Number(item.productoId);
+                pedidoPorProducto[clave] = (pedidoPorProducto[clave] || 0) + Number(item.cantidad);
+            }
+            for (const clave of Object.keys(pedidoPorProducto)) {
+                const prod = catalogoProductos.find(p => Number(p.id) === Number(clave));
+                if (!prod) continue;
+                const yaReservado = pedidoPrevio
+                    ? (pedidoPrevio.items || [])
+                        .filter(i => Number(i.productoId) === Number(clave))
+                        .reduce((suma, i) => suma + Number(i.cantidad), 0)
+                    : 0;
+                if (pedidoPorProducto[clave] > Number(prod.stockActual) + yaReservado) {
                     alert(`No te queda stock suficiente para: ${prod.nombre}`);
                     return; // Detiene el guardado y protege el inventario
                 }
@@ -972,22 +1035,8 @@
                     return;
                 }
             }
-            // 📦 2. DESCONTAR STOCK REAL EN LA TABLA 'stock' DE SUPABASE Y EN LOCAL
-        for (const item of itemsConPrecio) {
-            const prod = catalogoProductos.find(p => Number(p.id) === Number(item.productoId));
-            if (prod) {
-                prod.stockActual = Math.max(0, Number(prod.stockActual) - Number(item.cantidad));
-                
-                // Actualizar directamente en la base de datos Supabase
-                const { error: errStock } = await db.from('stock')
-                    .update({ cantidad: Number(prod.stockActual) })
-                    .eq('id', Number(prod.id));
-
-                if (errStock) {
-                     console.error("Error al descontar stock en Supabase:", errStock.message);
-                }
-            }
-        }
+            // 📦 El stock lo mueve la base de datos sola (descuenta al guardar y ajusta solo la diferencia al editar),
+            // así que la app ya no lo toca a mano.
 
             // Limpiar carrito, formulario y recargar datos desde Supabase
             limpiarCarritoActual();
@@ -1107,6 +1156,7 @@
 
         function switchMainTab(tabId) {
             const tabs = ['tomar', 'recordatorios', 'listado', 'proveedores', 'ventas', 'deudores'];
+            if (tabId === 'ventas' && typeof renderPanelVentas === 'function') renderPanelVentas();
             tabs.forEach(t => {
                 const el = document.getElementById(`view-${t}`);
                 const btn = document.getElementById(`nav-btn-${t}`);
@@ -1222,7 +1272,7 @@
 
 
         async function completarPedidoDirecto(id) {
-            if (!confirm("¿Estás seguro de que deseas eliminar este pedido permanentemente?")) {
+            if (!confirm("¿Estás seguro de que deseas eliminar este pedido permanentemente? Los productos volverán al stock.")) {
                 return;
             }
 
@@ -1244,7 +1294,7 @@
                     actualizarTodo();
                 }
 
-                alert("✅ Pedido eliminado correctamente de la base de datos y de la aplicación.");
+                alert("✅ Pedido eliminado correctamente. Los productos volvieron al stock.");
 
             } catch (err) {
                 console.error("Error de red al intentar borrar:", err);
@@ -1259,6 +1309,137 @@
             datalist.innerHTML = clientesUnicos.map(nombre => `<option value="${nombre}">`).join('');
         }
 
+        // Evita que un nombre con símbolos como < o & rompa la pantalla
+        function escaparHtml(texto) {
+            return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        // ---------- REGISTRO DE PEDIDOS A PROVEEDORES (solo lectura) ----------
+        function esMismoDia(a, b) {
+            return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+        }
+
+        function etiquetaDiaLarga(fecha) {
+            const hoy = new Date();
+            const ayer = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 1);
+            if (esMismoDia(fecha, hoy)) return 'Hoy';
+            if (esMismoDia(fecha, ayer)) return 'Ayer';
+            const texto = fecha.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            return texto.charAt(0).toUpperCase() + texto.slice(1);
+        }
+
+        function dentroDelPeriodoRegistro(fecha, periodo) {
+            const ahora = new Date();
+            if (periodo === '7') {
+                return fecha >= new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 6);
+            }
+            if (periodo === 'mes') {
+                return fecha.getFullYear() === ahora.getFullYear() && fecha.getMonth() === ahora.getMonth();
+            }
+            if (periodo === 'mes_anterior') {
+                const ref = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1);
+                return fecha.getFullYear() === ref.getFullYear() && fecha.getMonth() === ref.getMonth();
+            }
+            return true;
+        }
+
+        async function abrirRegistroProveedores() {
+            const overlay = document.getElementById('registro-proveedores-overlay');
+            if (!overlay) return;
+            overlay.classList.remove('hidden');
+            overlay.scrollTop = 0;
+            document.getElementById('registro-resumen').innerHTML = '';
+            document.getElementById('registro-lista').innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Cargando registro...</p>`;
+
+            const { data, error } = await db.from('movimientos_stock')
+                .select('id, created_at, producto_id, producto_nombre, delta, proveedor')
+                .eq('motivo', 'reposicion_proveedor')
+                .order('created_at', { ascending: false })
+                .limit(2000);
+
+            if (error) {
+                console.error("Error al cargar el registro de proveedores:", error.message);
+                document.getElementById('registro-lista').innerHTML = `<p class="text-xs text-red-600 text-center py-6">No se pudo cargar el registro: ${escaparHtml(error.message)}</p>`;
+                return;
+            }
+            registroProveedores = data || [];
+            renderRegistroProveedores();
+        }
+
+        function cerrarRegistroProveedores() {
+            const overlay = document.getElementById('registro-proveedores-overlay');
+            if (overlay) overlay.classList.add('hidden');
+        }
+
+        function renderRegistroProveedores() {
+            const lista = document.getElementById('registro-lista');
+            const resumen = document.getElementById('registro-resumen');
+            if (!lista || !resumen) return;
+
+            if (registroProveedores.length === 0) {
+                resumen.innerHTML = '';
+                lista.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Todavía no hay pedidos a proveedores registrados. Los que se registren desde ahora aparecerán aquí.</p>`;
+                return;
+            }
+
+            const texto = normalizarTexto((document.getElementById('registro-buscar') || {}).value);
+            const periodo = (document.getElementById('registro-periodo') || {}).value || 'todo';
+
+            const filtrados = registroProveedores.filter(m => {
+                const fecha = new Date(m.created_at);
+                if (isNaN(fecha) || !dentroDelPeriodoRegistro(fecha, periodo)) return false;
+                return !texto || normalizarTexto((m.producto_nombre || '') + ' ' + (m.proveedor || '')).includes(texto);
+            });
+
+            if (filtrados.length === 0) {
+                resumen.innerHTML = '';
+                lista.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No hay pedidos que coincidan con la búsqueda o las fechas elegidas.</p>`;
+                return;
+            }
+
+            const totalUnidades = filtrados.reduce((suma, m) => suma + Number(m.delta || 0), 0);
+            resumen.innerHTML = `<div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-center text-xs font-semibold text-emerald-800">${filtrados.length} ${filtrados.length === 1 ? 'pedido' : 'pedidos'} · ${totalUnidades.toLocaleString()} unidades en total</div>`;
+
+            // Agrupar por día (ya vienen del más reciente al más antiguo)
+            const grupos = [];
+            filtrados.forEach(m => {
+                const fecha = new Date(m.created_at);
+                let grupo = grupos[grupos.length - 1];
+                if (!grupo || !esMismoDia(grupo.fecha, fecha)) {
+                    grupo = { fecha, filas: [] };
+                    grupos.push(grupo);
+                }
+                grupo.filas.push(m);
+            });
+
+            lista.innerHTML = grupos.map(g => {
+                const totalDia = g.filas.reduce((suma, m) => suma + Number(m.delta || 0), 0);
+                const filas = g.filas.map(m => {
+                    const hora = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const prod = catalogoProductos.find(p => Number(p.id) === Number(m.producto_id));
+                    return `
+                        <div class="flex items-center justify-between gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="text-2xl">${prod && prod.emoji ? prod.emoji : '📦'}</span>
+                                <div class="min-w-0">
+                                    <div class="font-bold text-sm text-slate-800">${escaparHtml(m.producto_nombre || ('Producto #' + m.producto_id))}</div>
+                                    <div class="text-xs text-slate-500">${escaparHtml(m.proveedor || 'Sin nombre')} · ${hora}</div>
+                                </div>
+                            </div>
+                            <span class="font-black text-emerald-700 text-base whitespace-nowrap">+${Number(m.delta).toLocaleString()} u.</span>
+                        </div>`;
+                }).join('');
+                return `
+                    <div class="space-y-2">
+                        <div class="flex items-baseline justify-between px-1">
+                            <h3 class="font-bold text-sm text-meridena-dark">${etiquetaDiaLarga(g.fecha)}</h3>
+                            <span class="text-[11px] text-slate-400">${g.filas.length} ${g.filas.length === 1 ? 'pedido' : 'pedidos'} · ${totalDia.toLocaleString()} u.</span>
+                        </div>
+                        ${filas}
+                    </div>`;
+            }).join('');
+        }
+
         function renderSelectProveedores() {
             const select = document.getElementById('prov-producto-select');
             if (!select) return;
@@ -1269,6 +1450,8 @@
         async function registrarPedidoProveedor() {
             const prodId = parseInt(document.getElementById('prov-producto-select').value);
             const cantidad = parseInt(document.getElementById('prov-cantidad').value);
+            const inputNombre = document.getElementById('prov-nombre');
+            const proveedor = inputNombre ? inputNombre.value.trim() : '';
             
             if (isNaN(cantidad) || cantidad <= 0) {
                 alert("Ingresa una cantidad válida.");
@@ -1277,25 +1460,23 @@
             
             const prod = catalogoProductos.find(p => Number(p.id) === prodId);
             if (prod) {
-                // 1. Sumar al stock local temporalmente
-                prod.stockActual += cantidad;
-
-                // 2. 🟢 Actualizar directamente en la tabla 'stock' de Supabase
-                const { error } = await db.from('stock')
-                    .update({ cantidad: Number(prod.stockActual) })
-                    .eq('id', Number(prod.id));
+                // 1. La base de datos suma al stock y deja el pedido registrado (proveedor, cantidad y fecha)
+                const { error } = await db.rpc('registrar_pedido_proveedor', {
+                    p_producto: Number(prod.id),
+                    p_cantidad: cantidad,
+                    p_proveedor: proveedor
+                });
 
                 if (error) {
-                    alert("Error al actualizar el stock en Supabase: " + error.message);
+                    alert("Error al registrar el pedido a proveedor: " + error.message);
                     return;
                 }
 
-                // 3. Limpiar los campos del formulario
+                // 2. Limpiar los campos del formulario
                 document.getElementById('prov-cantidad').value = '';
-                const inputNombre = document.getElementById('prov-nombre');
                 if (inputNombre) inputNombre.value = '';
 
-                // 4. Sincronizar y redibujar la interfaz de inmediato
+                // 3. Sincronizar y redibujar la interfaz de inmediato
                 await cargarDatosDesdeSupabase();
                 
                 if (typeof renderCatalogo === 'function') renderCatalogo();
@@ -1445,7 +1626,11 @@
                     }
                 };
 
-                await db.from('ventas').insert([datosVenta]);
+                const { error: errVentaSaldo } = await db.from('ventas').insert([datosVenta]);
+                if (errVentaSaldo) {
+                    alert("No se pudo registrar la venta: " + errVentaSaldo.message);
+                    return;
+                }
 
                 // 2. Eliminar de deudores y de pedidos si seguía activo
                 await db.from('deudores').delete().eq('id', Number(id));
@@ -1504,6 +1689,137 @@
             return meses[mesNum];
         }
 
+        // ---------- VENTAS: fechas, historial y resumen ----------
+        function dinero(n) {
+            return '$' + Number(n || 0).toLocaleString();
+        }
+
+        function plural(n, uno, varios) {
+            return Number(n) === 1 ? uno : varios;
+        }
+
+        function fechaLocalISO(d) {
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const dia = String(d.getDate()).padStart(2, '0');
+            return `${d.getFullYear()}-${mes}-${dia}`;
+        }
+
+        function nombreDiaCorto(indice) {
+            return ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][indice];
+        }
+
+        function inicioDelDia(d) {
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        }
+
+        function inicioDeSemana(d) {
+            const x = inicioDelDia(d);
+            x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); // la semana empieza el lunes
+            return x;
+        }
+
+        // Día, semana o mes que contiene a "ancla": { desde, hasta } (hasta no está incluido)
+        function periodoDeVentas(vista, ancla) {
+            if (vista === 'dia') {
+                const d = inicioDelDia(ancla);
+                return { desde: d, hasta: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) };
+            }
+            if (vista === 'semana') {
+                const d = inicioDeSemana(ancla);
+                return { desde: d, hasta: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7) };
+            }
+            return {
+                desde: new Date(ancla.getFullYear(), ancla.getMonth(), 1),
+                hasta: new Date(ancla.getFullYear(), ancla.getMonth() + 1, 1)
+            };
+        }
+
+        function ventasDelPeriodo(desde, hasta) {
+            return listaVentas.filter(v => v.fechaVenta && v.fechaVenta >= desde.getTime() && v.fechaVenta < hasta.getTime());
+        }
+
+        // Suma el total vendido y junta los productos (cada producto con el precio al que se vendió)
+        function resumenVentas(ventas) {
+            const productos = {};
+            let total = 0;
+            ventas.forEach(v => {
+                total += Number(v.total || 0);
+                (v.items || []).forEach(i => {
+                    const precio = Number(i.precioUnitario || 0);
+                    const unidades = Number(i.cantidad || 0);
+                    const clave = `${i.productoId}|${precio}`;
+                    if (!productos[clave]) {
+                        productos[clave] = { productoId: i.productoId, nombre: i.nombre, emoji: i.emoji || '', precio, unidades: 0, subtotal: 0 };
+                    }
+                    productos[clave].unidades += unidades;
+                    productos[clave].subtotal += unidades * precio;
+                });
+            });
+            return {
+                total,
+                cantidad: ventas.length,
+                productos: Object.values(productos).sort((a, b) => b.subtotal - a.subtotal)
+            };
+        }
+
+        // "15 unidades (3 paquetes)" para los productos que se venden por paquete
+        function textoUnidades(productoId, unidades) {
+            const base = `${unidades} ${plural(unidades, 'unidad', 'unidades')}`;
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
+            const porPaquete = prod ? Number(prod.unidadesPorPaquete || 0) : 0;
+            if (!porPaquete || unidades < porPaquete) return base;
+            const paquetes = Math.floor(unidades / porPaquete);
+            const sueltas = unidades % porPaquete;
+            const extra = sueltas ? ` + ${sueltas} ${plural(sueltas, 'suelta', 'sueltas')}` : '';
+            return `${base} (${paquetes} ${plural(paquetes, 'paquete', 'paquetes')}${extra})`;
+        }
+
+        function etiquetaPeriodoVentas(vista, ancla) {
+            const p = periodoDeVentas(vista, ancla);
+            if (vista === 'dia') return etiquetaDiaLarga(p.desde);
+            if (vista === 'mes') return `${obtenerNombreMes(p.desde.getMonth())} ${p.desde.getFullYear()}`;
+            const fin = new Date(p.hasta.getFullYear(), p.hasta.getMonth(), p.hasta.getDate() - 1);
+            const dia = (f, conMes) => conMes ? `${f.getDate()} de ${obtenerNombreMes(f.getMonth()).toLowerCase()}` : `${f.getDate()}`;
+            const mismoMes = p.desde.getMonth() === fin.getMonth();
+            return `Semana del ${dia(p.desde, !mismoMes)} al ${dia(fin, true)}`;
+        }
+
+        function seleccionarVistaVentas(vista) {
+            panelVentasVista = vista;
+            panelVentasAncla = new Date();
+            renderPanelVentas();
+        }
+
+        function moverPeriodoVentas(paso) {
+            // No se puede avanzar más allá del período actual
+            if (paso > 0 && periodoDeVentas(panelVentasVista, panelVentasAncla).hasta.getTime() > Date.now()) return;
+            const a = new Date(panelVentasAncla);
+            if (panelVentasVista === 'dia') a.setDate(a.getDate() + paso);
+            else if (panelVentasVista === 'semana') a.setDate(a.getDate() + 7 * paso);
+            else { a.setDate(1); a.setMonth(a.getMonth() + paso); }
+            panelVentasAncla = a;
+            renderPanelVentas();
+        }
+
+        function irAPeriodoVentas(vista, fechaMs) {
+            panelVentasVista = vista;
+            panelVentasAncla = new Date(fechaMs);
+            renderPanelVentas();
+        }
+
+        function htmlFilaVenta(v) {
+            return `
+                                    <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-xs shadow-2xs my-1">
+                                        <div class="space-y-0.5">
+                                            <strong class="text-slate-900 block">${escaparHtml(v.cliente)}</strong>
+                                            <span class="text-slate-500">${escaparHtml((v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', '))}</span>
+                                            <span class="text-emerald-700 font-black block">$${Number(v.total).toLocaleString()}</span>
+                                        </div>
+                                        <button onclick="eliminarVenta(${v.id})" class="text-red-400 hover:text-red-600 font-bold p-1 text-base">✕</button>
+                                    </div>
+                                `;
+        }
+
         function renderVentasArbol() {
             const contenedor = document.getElementById('contenedor-arbol-ventas');
             if (!contenedor) return;
@@ -1511,13 +1827,15 @@
                 contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay ventas registradas.</p>`;
                 return;
             }
+            const conFecha = listaVentas.filter(v => v.fechaVenta);
+            const sinFecha = listaVentas.filter(v => !v.fechaVenta).sort((a, b) => Number(b.id) - Number(a.id));
             const arbol = {};
-            listaVentas.forEach(v => {
-                const fecha = new Date(v.created_at || v.timestamp || Date.now());
+            conFecha.forEach(v => {
+                const fecha = new Date(v.fechaVenta);
                 const anio = fecha.getFullYear();
                 const mes = fecha.getMonth();
                 const semana = obtenerNumeroSemana(fecha);
-                const diaStr = fecha.toISOString().split('T')[0];
+                const diaStr = fechaLocalISO(fecha);
                 if (!arbol[anio]) arbol[anio] = {};
                 if (!arbol[anio][mes]) arbol[anio][mes] = {};
                 if (!arbol[anio][mes][semana]) arbol[anio][mes][semana] = {};
@@ -1539,16 +1857,7 @@
                             html += `<div class="ml-2 pl-2 border-l-2 border-slate-300 space-y-1 my-1">
                                 <span class="text-[10px] font-bold text-slate-500">📆 Día: ${dia}</span>`;
                             arbol[anio][mes][semana][dia].forEach(v => {
-                                html += `
-                                    <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-xs shadow-2xs my-1">
-                                        <div class="space-y-0.5">
-                                            <strong class="text-slate-900 block">${v.cliente}</strong>
-                                            <span class="text-slate-500">${(v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</span>
-                                            <span class="text-emerald-700 font-black block">$${Number(v.total).toLocaleString()}</span>
-                                        </div>
-                                        <button onclick="eliminarVenta(${v.id})" class="text-red-400 hover:text-red-600 font-bold p-1 text-base">✕</button>
-                                    </div>
-                                `;
+                                html += htmlFilaVenta(v);
                             });
                             html += `</div>`;
                         });
@@ -1558,20 +1867,267 @@
                 });
                 html += `</div>`;
             });
+
+            if (sinFecha.length) {
+                html += `<div class="border border-amber-300 rounded-xl p-3 bg-amber-50 space-y-1">
+                    <h3 class="font-bold text-sm text-amber-800 border-b border-amber-200 pb-1">⏳ Sin fecha registrada (${sinFecha.length})</h3>
+                    <p class="text-[11px] text-amber-700">Son ventas antiguas: cuando se hicieron no se guardó la fecha.</p>
+                    ${sinFecha.map(htmlFilaVenta).join('')}
+                </div>`;
+            }
             contenedor.innerHTML = html;
             if (window.lucide) lucide.createIcons();
+        }
+
+        function renderPanelVentas() {
+            const contTarjetas = document.getElementById('panel-ventas-tarjetas');
+            const contNav = document.getElementById('panel-ventas-navegador');
+            const contCuerpo = document.getElementById('panel-ventas-contenido');
+            const contHist = document.getElementById('panel-ventas-historico');
+            if (!contTarjetas || !contNav || !contCuerpo || !contHist) return;
+
+            const ahora = new Date();
+
+            // 1) Tres tarjetas: hoy, esta semana y este mes. Se tocan para ver el detalle.
+            contTarjetas.innerHTML = [['dia', 'Hoy'], ['semana', 'Esta semana'], ['mes', 'Este mes']].map(([vistaT, titulo]) => {
+                const pT = periodoDeVentas(vistaT, ahora);
+                const rT = resumenVentas(ventasDelPeriodo(pT.desde, pT.hasta));
+                const activa = panelVentasVista === vistaT;
+                return `
+                    <button type="button" onclick="seleccionarVistaVentas('${vistaT}')" class="text-left p-2.5 rounded-xl border transition ${activa ? 'bg-meridena-sky border-meridena-sky text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}">
+                        <div class="text-[10px] font-semibold ${activa ? 'text-white/90' : 'text-slate-500'}">${titulo}</div>
+                        <div class="text-sm font-black leading-tight break-words">${dinero(rT.total)}</div>
+                        <div class="text-[10px] ${activa ? 'text-white/90' : 'text-slate-400'}">${rT.cantidad} ${plural(rT.cantidad, 'venta', 'ventas')}</div>
+                    </button>`;
+            }).join('');
+
+            // 2) Período que se está mirando, con flechas para ir al anterior o al siguiente
+            const vista = panelVentasVista;
+            const per = periodoDeVentas(vista, panelVentasAncla);
+            const esActual = per.hasta.getTime() > ahora.getTime();
+            const ventasPer = ventasDelPeriodo(per.desde, per.hasta);
+            const res = resumenVentas(ventasPer);
+
+            contNav.innerHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    <button type="button" onclick="moverPeriodoVentas(-1)" aria-label="Período anterior" class="w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-xl font-black text-slate-700">‹</button>
+                    <div class="text-center font-bold text-sm text-meridena-dark">${etiquetaPeriodoVentas(vista, panelVentasAncla)}</div>
+                    <button type="button" onclick="moverPeriodoVentas(1)" aria-label="Período siguiente" ${esActual ? 'disabled' : ''} class="w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-xl font-black text-slate-700 disabled:opacity-30">›</button>
+                </div>`;
+
+            // 3) Total del período, desglose y productos vendidos
+            let cuerpo = `
+                <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-center">
+                    <div class="text-[11px] font-semibold text-emerald-700">Vendido ${vista === 'dia' ? 'en el día' : vista === 'semana' ? 'en la semana' : 'en el mes'}</div>
+                    <div class="text-2xl font-black text-emerald-800">${dinero(res.total)}</div>
+                    <div class="text-[11px] text-emerald-700">${res.cantidad} ${plural(res.cantidad, 'venta', 'ventas')}</div>
+                </div>`;
+
+            if (res.cantidad === 0) {
+                cuerpo += `<p class="text-xs text-slate-400 text-center py-3">No hay ventas en este período.</p>`;
+            } else {
+                if (vista === 'semana' || vista === 'mes') {
+                    const filas = [];
+                    if (vista === 'semana') {
+                        for (let i = 0; i < 7; i++) {
+                            const dia = new Date(per.desde.getFullYear(), per.desde.getMonth(), per.desde.getDate() + i);
+                            const sig = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate() + 1);
+                            const r = resumenVentas(ventasDelPeriodo(dia, sig));
+                            filas.push({
+                                etiqueta: `${nombreDiaCorto(i)} ${dia.getDate()}${esMismoDia(dia, ahora) ? ' (hoy)' : ''}`,
+                                total: r.total,
+                                ir: `irAPeriodoVentas('dia', ${dia.getTime()})`
+                            });
+                        }
+                    } else {
+                        let ini = inicioDeSemana(per.desde);
+                        while (ini.getTime() < per.hasta.getTime()) {
+                            const finSemana = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 7);
+                            const desde = ini.getTime() < per.desde.getTime() ? per.desde : ini;
+                            const hasta = finSemana.getTime() > per.hasta.getTime() ? per.hasta : finSemana;
+                            const r = resumenVentas(ventasDelPeriodo(desde, hasta));
+                            const ultimo = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate() - 1);
+                            filas.push({
+                                etiqueta: desde.getDate() === ultimo.getDate() ? `Día ${desde.getDate()}` : `Semana del ${desde.getDate()} al ${ultimo.getDate()}`,
+                                total: r.total,
+                                ir: `irAPeriodoVentas('semana', ${ini.getTime()})`
+                            });
+                            ini = finSemana;
+                        }
+                    }
+                    const maximo = Math.max(...filas.map(f => f.total), 0);
+                    cuerpo += `
+                        <div class="space-y-1.5">
+                            <h3 class="text-xs font-bold text-slate-500">${vista === 'semana' ? 'Día por día' : 'Semana por semana'} <span class="font-normal text-slate-400">· toca uno para ver su detalle</span></h3>
+                            ${filas.map(f => `
+                                <button type="button" onclick="${f.ir}" class="w-full text-left p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-100 text-xs space-y-1.5">
+                                    <div class="flex justify-between">
+                                        <span class="font-bold text-slate-700">${f.etiqueta}</span>
+                                        <span class="font-black ${f.total > 0 ? 'text-emerald-700' : 'text-slate-300'}">${dinero(f.total)}</span>
+                                    </div>
+                                    <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 rounded-full" style="width: ${maximo > 0 ? Math.round(f.total / maximo * 100) : 0}%"></div></div>
+                                </button>`).join('')}
+                        </div>`;
+                } else {
+                    cuerpo += `
+                        <div class="space-y-1.5">
+                            <h3 class="text-xs font-bold text-slate-500">Ventas del día</h3>
+                            ${ventasPer.slice().sort((a, b) => b.fechaVenta - a.fechaVenta).map(v => `
+                                <div class="flex items-center justify-between gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                                    <div class="min-w-0">
+                                        <strong class="text-slate-800">${escaparHtml(v.cliente || 'Cliente')}</strong>
+                                        <div class="text-slate-500">${escaparHtml((v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', '))}</div>
+                                    </div>
+                                    <span class="font-black text-emerald-700 whitespace-nowrap">${dinero(v.total)}</span>
+                                </div>`).join('')}
+                        </div>`;
+                }
+
+                const valorProductos = res.productos.reduce((suma, p) => suma + p.subtotal, 0);
+                cuerpo += `<div class="space-y-1.5"><h3 class="text-xs font-bold text-slate-500">Qué se vendió</h3>`;
+                if (res.productos.length === 0) {
+                    cuerpo += `<p class="text-xs text-slate-400 text-center py-2">Estas ventas no tienen el detalle de productos.</p>`;
+                } else {
+                    cuerpo += res.productos.map(p => `
+                        <div class="flex items-start justify-between gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                            <div class="min-w-0">
+                                <div class="font-bold text-sm text-slate-800">${p.emoji} ${escaparHtml(p.nombre)}</div>
+                                <div class="text-slate-500">${textoUnidades(p.productoId, p.unidades)} · a ${dinero(p.precio)} c/u</div>
+                            </div>
+                            <div class="font-black text-emerald-700 text-sm whitespace-nowrap">${dinero(p.subtotal)}</div>
+                        </div>`).join('');
+                    if (Math.abs(valorProductos - res.total) > 0.5) {
+                        cuerpo += `<p class="text-[10px] text-slate-400">Los productos suman ${dinero(valorProductos)}. La diferencia con el total puede venir de deudas saldadas con pagos parciales o de ventas sin detalle de productos.</p>`;
+                    }
+                }
+                cuerpo += `</div>`;
+            }
+            contCuerpo.innerHTML = cuerpo;
+
+            // 4) Total de todas las ventas (incluye las antiguas sin fecha)
+            const todas = resumenVentas(listaVentas);
+            const sinFecha = listaVentas.filter(v => !v.fechaVenta);
+            let hist = `
+                <div class="rounded-xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-semibold text-slate-500">Total de todas las ventas</div>
+                        <div class="text-[10px] text-slate-400">${todas.cantidad} ${plural(todas.cantidad, 'venta', 'ventas')}${sinFecha.length ? ` (${sinFecha.length} sin fecha)` : ''}</div>
+                    </div>
+                    <div class="text-lg font-black text-meridena-dark">${dinero(todas.total)}</div>
+                </div>`;
+            if (sinFecha.length) {
+                const rs = resumenVentas(sinFecha);
+                hist += `
+                    <div class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs space-y-2">
+                        <p class="text-amber-900"><strong>${sinFecha.length} ${plural(sinFecha.length, 'venta antigua no tiene', 'ventas antiguas no tienen')} fecha</strong> (${dinero(rs.total)} en total). Cuentan en el total de todas las ventas, pero no aparecen en ningún día, semana o mes porque nunca se guardó cuándo se hicieron.</p>
+                        <button type="button" onclick="abrirFechasVentas()" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs">Poner la fecha a esas ventas</button>
+                    </div>`;
+            }
+            contHist.innerHTML = hist;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // ---------- PONER FECHA A LAS VENTAS ANTIGUAS ----------
+        function abrirFechasVentas() {
+            const overlay = document.getElementById('fechas-ventas-overlay');
+            if (!overlay) return;
+            overlay.classList.remove('hidden');
+            overlay.scrollTop = 0;
+            renderFechasVentas();
+        }
+
+        function cerrarFechasVentas() {
+            const overlay = document.getElementById('fechas-ventas-overlay');
+            if (overlay) overlay.classList.add('hidden');
+        }
+
+        function renderFechasVentas() {
+            const cont = document.getElementById('fechas-ventas-lista');
+            if (!cont) return;
+            const pendientes = listaVentas.filter(v => !v.fechaVenta).sort((a, b) => Number(a.id) - Number(b.id));
+            if (pendientes.length === 0) {
+                cont.innerHTML = `<p class="text-sm text-emerald-700 text-center py-8">¡Listo! Todas las ventas tienen fecha.</p>`;
+                return;
+            }
+            const maxFecha = fechaLocalISO(new Date());
+            cont.innerHTML = pendientes.map((v, indice) => `
+                <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <div class="flex justify-between gap-2">
+                        <div class="min-w-0">
+                            <strong class="text-slate-900 block">${escaparHtml(v.cliente || 'Cliente')}</strong>
+                            <span class="text-slate-500">${escaparHtml((v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ') || 'Sin detalle de productos')}</span>
+                        </div>
+                        <span class="font-black text-emerald-700 whitespace-nowrap">${dinero(v.total)}</span>
+                    </div>
+                    <input type="date" max="${maxFecha}" data-venta-id="${v.id}" data-prev="" onchange="propagarFechaVenta(${indice})" class="fecha-venta-input w-full px-3 py-2 rounded-xl border border-slate-300 text-base bg-white focus:outline-none focus:ring-2 focus:ring-meridena-sky">
+                </div>`).join('');
+        }
+
+        // Al elegir una fecha, las ventas siguientes que estén vacías (o con la fecha anterior) se rellenan con la misma
+        function propagarFechaVenta(indice) {
+            const inputs = [...document.querySelectorAll('.fecha-venta-input')];
+            const origen = inputs[indice];
+            if (!origen) return;
+            const anterior = origen.dataset.prev || '';
+            const nuevo = origen.value;
+            for (let j = indice + 1; j < inputs.length; j++) {
+                if (inputs[j].value === '' || inputs[j].value === anterior) {
+                    inputs[j].value = nuevo;
+                    inputs[j].dataset.prev = nuevo;
+                }
+            }
+            origen.dataset.prev = nuevo;
+        }
+
+        async function guardarFechasVentas() {
+            const inputs = [...document.querySelectorAll('.fecha-venta-input')].filter(i => i.value);
+            if (inputs.length === 0) {
+                alert("Elige la fecha de al menos una venta.");
+                return;
+            }
+            let guardadas = 0;
+            const fallos = [];
+            for (const input of inputs) {
+                const [anio, mes, dia] = input.value.split('-').map(Number);
+                const fecha = new Date(anio, mes - 1, dia, 12, 0, 0);
+                if (fecha.getTime() > Date.now()) {
+                    fallos.push(`La fecha ${input.value} es futura.`);
+                    continue;
+                }
+                const { error } = await db.rpc('fijar_fecha_venta', {
+                    p_id: Number(input.dataset.ventaId),
+                    p_fecha: fecha.toISOString()
+                });
+                if (error) fallos.push(error.message);
+                else guardadas++;
+            }
+            await cargarDatosDesdeSupabase();
+            renderFechasVentas();
+            if (fallos.length === 0) {
+                alert(`✅ Se guardó la fecha de ${guardadas} ${plural(guardadas, 'venta', 'ventas')}.`);
+            } else {
+                alert(`Se guardaron ${guardadas}. No se pudo guardar:\n- ${[...new Set(fallos)].join('\n- ')}`);
+            }
         }
 
         async function eliminarVenta(id) {
             if (!confirm("¿Estás seguro de que deseas eliminar esta venta del historial?")) return;
 
-            // Primero se borra en la base de datos; solo si de verdad se borró se quita de la pantalla
-            const resultado = await borrarEnSupabase('ventas', id);
-            if (!resultado.ok) {
-                alert("No se pudo eliminar la venta: " + resultado.mensaje);
+            // Aceptar = los productos vuelven al stock · Cancelar = solo se borra del historial
+            const devolverStock = confirm("¿Devolver al stock los productos de esta venta?\n\nAceptar: sí, se suman de nuevo al stock.\nCancelar: no, solo se borra del historial.");
+
+            // La base de datos borra la venta y, si corresponde, devuelve el stock en un solo paso
+            const { error } = await db.rpc('eliminar_venta', {
+                p_id: Number(id),
+                p_devolver_stock: devolverStock
+            });
+            if (error) {
+                alert("No se pudo eliminar la venta: " + error.message);
                 return;
             }
+
             listaVentas = listaVentas.filter(v => Number(v.id) !== Number(id));
+            await cargarDatosDesdeSupabase();
             renderVentasArbol();
         }
     </script>
