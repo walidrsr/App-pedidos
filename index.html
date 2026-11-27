@@ -104,6 +104,21 @@
         </div>
     </div>
 
+    <!-- COSTOS Y PRECIOS -->
+    <div id="costos-overlay" class="hidden fixed inset-0 z-[45] bg-[#FDFBF7] overflow-y-auto">
+        <div class="max-w-md mx-auto px-4 py-4 space-y-4 pb-10">
+            <button type="button" onclick="cerrarCostos()" class="text-sm font-bold text-meridena-sky py-1">‹ Volver a ventas</button>
+            <div>
+                <h2 class="font-brand font-bold text-xl text-meridena-dark">Costos y precios</h2>
+                <p class="text-xs text-slate-500">Anota lo que te cuesta cada cosa y la app calcula el costo total y el precio al que conviene vender. Los cambios no alteran las ventas ya hechas: cada venta guarda los costos de su momento.</p>
+            </div>
+            <div id="costos-aviso"></div>
+            <div id="costos-config"></div>
+            <div id="costos-paqueteria"></div>
+            <div id="costos-productos" class="space-y-3"></div>
+        </div>
+    </div>
+
     <!-- HEADER MÓVIL COMPACTO -->
     <header class="bg-white border-b border-slate-200/85 shadow-xs sticky top-0 z-30">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
@@ -239,22 +254,18 @@
 
         <!-- SECCIÓN 5: VENTAS -->
         <div id="view-ventas" class="hidden space-y-4">
+            <button type="button" onclick="abrirCostos()" class="w-full py-3 px-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between text-left hover:bg-slate-50">
+                <span class="flex items-center gap-2 font-bold text-sm text-meridena-dark"><i data-lucide="calculator" class="w-4 h-4 text-meridena-sky"></i> Costos y precios</span>
+                <span class="text-xs text-slate-400">Editar costos y ver ganancia ›</span>
+            </button>
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                 <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
                     <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i> Resumen de ventas
                 </h2>
                 <div id="panel-ventas-tarjetas" class="grid grid-cols-3 gap-2"></div>
                 <div id="panel-ventas-navegador"></div>
-                <div id="panel-ventas-contenido" class="space-y-3"></div>
+                <div id="panel-ventas-contenido" class="space-y-4"></div>
                 <div id="panel-ventas-historico" class="space-y-2"></div>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <h2 class="font-brand font-bold text-base text-meridena-dark flex items-center gap-2">
-                        <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-600"></i> Historial de Ventas (Jerárquico)
-                    </h2>
-                </div>
-                <div id="contenedor-arbol-ventas" class="space-y-3"></div>
             </div>
         </div>
 
@@ -341,6 +352,15 @@
                     <label class="block font-bold text-slate-700 mb-1">Monto que paga hoy ($):</label>
                     <input type="number" id="modal-input-monto-pagado" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-lg font-black text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
                 </div>
+            </div>
+            <div class="text-xs">
+                <label class="block font-bold text-slate-700 mb-1" for="modal-forma-pago">¿Cómo paga?</label>
+                <select id="modal-forma-pago" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-meridena-sky">
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Otro">Otro</option>
+                </select>
             </div>
             <div class="space-y-2 pt-2">
                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">Selecciona qué está pasando:</p>
@@ -448,6 +468,11 @@
         let registroProveedores = [];
         let panelVentasVista = 'dia';
         let panelVentasAncla = new Date();
+        let configVentas = { ganancia_pct: 30, redondeo: 50 };
+        let costosProducto = {};
+        let listaPaqueteria = [];
+        let paqueteriaProducto = [];
+        let costosDisponibles = false;
         let listaClientes = [];
         let pedidoEnProcesoId = null;
         let pedidoEnEdicionId = null;
@@ -574,8 +599,39 @@
                         metodo_pago: v.metodo_pago,
                         fecha: v.created_at ? new Date(v.created_at).toLocaleDateString() : '',
                         fechaVenta: v.created_at ? new Date(v.created_at).getTime() : null,
+                        estado: v.estado || 'completada',
+                        anuladaAt: v.anulada_at ? new Date(v.anulada_at).getTime() : null,
+                        motivoAnulacion: v.motivo_anulacion || '',
+                        formaPago: v.forma_pago || null,
+                        costoTotal: (v.costo_total === null || v.costo_total === undefined) ? null : Number(v.costo_total),
+                        ganancia: (v.ganancia === null || v.ganancia === undefined) ? null : Number(v.ganancia),
                         items: v.detalles_venta?.items || [],
                         horaRegistro: v.detalles_venta?.horaRegistro || ''
+                    }));
+                }
+
+                // 4c. Costos, paquetería y ajustes de ganancia (si las tablas aún no existen, la app sigue igual)
+                const [rConfig, rCostos, rPaq, rPaqProd] = await Promise.all([
+                    db.from('configuracion_ventas').select('*').eq('id', 1),
+                    db.from('costos_producto').select('*'),
+                    db.from('paqueteria').select('*').order('nombre', { ascending: true }),
+                    db.from('producto_paqueteria').select('*')
+                ]);
+                costosDisponibles = !rConfig.error && !rCostos.error && !rPaq.error && !rPaqProd.error;
+                if (costosDisponibles) {
+                    if (rConfig.data && rConfig.data[0]) {
+                        configVentas = { ganancia_pct: Number(rConfig.data[0].ganancia_pct), redondeo: Number(rConfig.data[0].redondeo) };
+                    }
+                    costosProducto = {};
+                    (rCostos.data || []).forEach(c => {
+                        costosProducto[c.producto_id] = {
+                            costo_mayorista: Number(c.costo_mayorista),
+                            ganancia_pct: (c.ganancia_pct === null || c.ganancia_pct === undefined) ? null : Number(c.ganancia_pct)
+                        };
+                    });
+                    listaPaqueteria = (rPaq.data || []).map(m => ({ id: m.id, nombre: m.nombre, costo: Number(m.costo) }));
+                    paqueteriaProducto = (rPaqProd.data || []).map(l => ({
+                        producto_id: l.producto_id, paqueteria_id: l.paqueteria_id, cantidad: Number(l.cantidad), por: l.por
                     }));
                 }
 
@@ -589,7 +645,6 @@
                 if (typeof renderListadoGeneral === 'function') renderListadoGeneral();
                 if (typeof renderBadgeHoy === 'function') renderBadgeHoy();
                 if (typeof renderEntregasHoy === 'function') renderEntregasHoy();
-                if (typeof renderVentasArbol === 'function') renderVentasArbol();
                 if (typeof renderPanelVentas === 'function') renderPanelVentas();
 
                 if (typeof actualizarTodo === 'function') {
@@ -1529,20 +1584,28 @@
                     await db.from('clientes').insert([{ nombre: nombreClienteLimpio, telefono: 'Sin teléfono' }]);
                 }
 
+                // Foto de costos, ganancia y precios de este momento: no cambia aunque luego se editen los costos
+                const snapshot = construirSnapshotVenta(pedido.items || [], totalPedido);
+                const formaPagoEl = document.getElementById('modal-forma-pago');
+
                 const datosVentaSupabase = {
                     id: Number(pedido.id),
                     total: Number(totalPedido),
                     metodo_pago: saldoPendienteRestante === 0 ? 'Pagado 100%' : 'Pago Parcial Saldado',
                     nombreCliente: nombreClienteLimpio,
+                    estado: 'completada',
+                    forma_pago: formaPagoEl ? formaPagoEl.value : null,
+                    costo_total: snapshot.costo_total,
+                    ganancia: snapshot.ganancia,
                     detalles_venta: {
-                        items: pedido.items || [],
+                        items: snapshot.items,
                         horaRegistro: pedido.horaRegistro || ''
                     }
                 };
 
                 const { error: errVenta } = await db.from('ventas').insert([datosVentaSupabase]);
                 if (errVenta) {
-                    alert("Error al guardar la venta: " + errVenta.message);
+                    alert("Error al guardar la venta: " + mensajeErrorBase(errVenta));
                     return;
                 }
 
@@ -1570,6 +1633,8 @@
             }
 
             if (inputMontoEl) inputMontoEl.value = '';
+            const formaPagoReset = document.getElementById('modal-forma-pago');
+            if (formaPagoReset) formaPagoReset.value = 'Efectivo';
             document.getElementById('modal-completar').classList.add('hidden');
 
             await cargarDatosDesdeSupabase();
@@ -1615,20 +1680,28 @@
                 const montoTotalSaldado = Number(deudorObj.montoDeuda || deudorObj.monto || 0);
 
                 // 1. Registrar en la tabla de ventas
+                // Si hay pedido, la venta vale el total del pedido (no solo el último saldo): así los abonos
+                // anteriores también cuentan como vendidos. Sin pedido, se usa el monto de la deuda.
+                const totalVenta = pedidoObj ? Number(pedidoObj.total || 0) : montoTotalSaldado;
+                const snapshot = construirSnapshotVenta(pedidoObj ? (pedidoObj.items || []) : [], totalVenta);
                 const datosVenta = {
                     id: Number(id),
-                    total: montoTotalSaldado,
+                    total: totalVenta,
                     metodo_pago: 'Deuda Saldada / Pagada',
                     nombreCliente: nombreCliente,
+                    estado: 'completada',
+                    forma_pago: null,
+                    costo_total: snapshot.costo_total,
+                    ganancia: snapshot.ganancia,
                     detalles_venta: {
-                        items: pedidoObj ? pedidoObj.items : [],
+                        items: snapshot.items,
                         horaRegistro: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     }
                 };
 
                 const { error: errVentaSaldo } = await db.from('ventas').insert([datosVenta]);
                 if (errVentaSaldo) {
-                    alert("No se pudo registrar la venta: " + errVentaSaldo.message);
+                    alert("No se pudo registrar la venta: " + mensajeErrorBase(errVentaSaldo));
                     return;
                 }
 
@@ -1739,27 +1812,97 @@
         }
 
         // Suma el total vendido y junta los productos (cada producto con el precio al que se vendió)
+        // Suma lo vendido en un conjunto de ventas (las anuladas se quitan antes de llamar aquí)
         function resumenVentas(ventas) {
             const productos = {};
-            let total = 0;
+            const pagos = {};
+            let total = 0, unidades = 0, ganancia = 0, baseMargen = 0, ventasConCosto = 0;
             ventas.forEach(v => {
-                total += Number(v.total || 0);
+                const totalVenta = Number(v.total || 0);
+                total += totalVenta;
+                const nombrePago = v.formaPago || 'Sin dato';
+                if (!pagos[nombrePago]) pagos[nombrePago] = { nombre: nombrePago, cantidad: 0, total: 0 };
+                pagos[nombrePago].cantidad += 1;
+                pagos[nombrePago].total += totalVenta;
+                if (v.ganancia !== null && v.ganancia !== undefined) {
+                    ganancia += Number(v.ganancia);
+                    baseMargen += totalVenta;
+                    ventasConCosto += 1;
+                }
                 (v.items || []).forEach(i => {
                     const precio = Number(i.precioUnitario || 0);
-                    const unidades = Number(i.cantidad || 0);
+                    const cant = Number(i.cantidad || 0);
+                    unidades += cant;
                     const clave = `${i.productoId}|${precio}`;
                     if (!productos[clave]) {
-                        productos[clave] = { productoId: i.productoId, nombre: i.nombre, emoji: i.emoji || '', precio, unidades: 0, subtotal: 0 };
+                        productos[clave] = { productoId: i.productoId, nombre: i.nombre, emoji: i.emoji || '', precio, unidades: 0, subtotal: 0, costo: 0, ingresoConCosto: 0, unidadesConCosto: 0 };
                     }
-                    productos[clave].unidades += unidades;
-                    productos[clave].subtotal += unidades * precio;
+                    const p = productos[clave];
+                    p.unidades += cant;
+                    p.subtotal += cant * precio;
+                    if (i.costoUnitario !== null && i.costoUnitario !== undefined) {
+                        p.costo += cant * Number(i.costoUnitario);
+                        p.ingresoConCosto += cant * precio;
+                        p.unidadesConCosto += cant;
+                    }
                 });
             });
+            const cantidad = ventas.length;
             return {
-                total,
-                cantidad: ventas.length,
-                productos: Object.values(productos).sort((a, b) => b.subtotal - a.subtotal)
+                total, cantidad, unidades,
+                ticket: cantidad ? total / cantidad : 0,
+                ganancia: ventasConCosto ? ganancia : null,
+                margen: (ventasConCosto && baseMargen > 0) ? ganancia / baseMargen * 100 : null,
+                ventasConCosto,
+                productos: Object.values(productos).sort((a, b) => b.subtotal - a.subtotal),
+                pagos: Object.values(pagos).sort((a, b) => b.total - a.total)
             };
+        }
+
+        // ---------- COMPARATIVAS CON EL PERÍODO ANTERIOR ----------
+        function restarUnidad(fecha, vista) {
+            const d = new Date(fecha);
+            if (vista === 'dia') d.setDate(d.getDate() - 1);
+            else if (vista === 'semana') d.setDate(d.getDate() - 7);
+            else {
+                const dia = d.getDate();
+                d.setDate(1);
+                d.setMonth(d.getMonth() - 1);
+                const ultimo = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+                d.setDate(Math.min(dia, ultimo));
+            }
+            return d;
+        }
+
+        // Período anterior equivalente. Si el actual sigue en curso, se compara el mismo tramo
+        // (por ejemplo, hoy hasta ahora contra ayer hasta la misma hora).
+        function periodoAnteriorDe(vista, ancla, ahora) {
+            const actual = periodoDeVentas(vista, ancla);
+            const previo = periodoDeVentas(vista, restarUnidad(ancla, vista));
+            if (actual.hasta.getTime() > ahora.getTime()) {
+                const tope = restarUnidad(ahora, vista).getTime() + 1;
+                return { desde: previo.desde, hasta: new Date(Math.min(previo.hasta.getTime(), tope)) };
+            }
+            return previo;
+        }
+
+        function variacionVentas(actual, anterior) {
+            if (actual === null || anterior === null || actual === undefined || anterior === undefined) return null;
+            if (anterior === 0) return actual === 0 ? null : { texto: 'Nuevo', signo: 1 };
+            const pct = Math.round((actual - anterior) / Math.abs(anterior) * 100);
+            if (pct === 0) return { texto: '= igual', signo: 0 };
+            return { texto: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, signo: pct > 0 ? 1 : -1 };
+        }
+
+        function htmlVariacion(v, sobreOscuro) {
+            if (!v) return '';
+            const clase = sobreOscuro ? 'text-white' : (v.signo > 0 ? 'text-emerald-600' : v.signo < 0 ? 'text-red-500' : 'text-slate-400');
+            return `<span class="font-bold ${clase}">${v.texto}</span>`;
+        }
+
+        function etiquetaComparacion(vista, esActual) {
+            if (!esActual) return 'vs período anterior';
+            return vista === 'dia' ? 'vs ayer' : vista === 'semana' ? 'vs semana pasada' : 'vs mes pasado';
         }
 
         // "15 unidades (3 paquetes)" para los productos que se venden por paquete
@@ -1807,76 +1950,378 @@
             renderPanelVentas();
         }
 
-        function htmlFilaVenta(v) {
+        // Cada venta es un evento individual con fecha y hora. Las anuladas se quedan, marcadas.
+        function htmlFilaVentaPeriodo(v, vista) {
+            const anulada = v.estado === 'anulada';
+            const fecha = new Date(v.fechaVenta);
+            const hora = fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const fechaTexto = vista === 'dia' ? hora : `${fecha.getDate()}/${fecha.getMonth() + 1} ${hora}`;
+            const detalle = escaparHtml((v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ') || 'Sin detalle de productos');
+            const gananciaHtml = anulada
+                ? `<div class="text-[10px] font-bold text-red-500">ANULADA</div>`
+                : (v.ganancia !== null && v.ganancia !== undefined
+                    ? `<div class="text-[10px] text-emerald-600">ganancia ${dinero2(v.ganancia)}</div>`
+                    : `<div class="text-[10px] text-slate-400">sin costo</div>`);
+            const pie = anulada
+                ? `<div class="mt-1 text-[10px] text-slate-500">${escaparHtml(v.motivoAnulacion || 'Venta anulada')}</div>`
+                : `<button type="button" onclick="anularVenta(${v.id})" class="mt-1.5 text-[11px] font-bold text-red-500 hover:text-red-600">Anular venta</button>`;
             return `
-                                    <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-xs shadow-2xs my-1">
-                                        <div class="space-y-0.5">
-                                            <strong class="text-slate-900 block">${escaparHtml(v.cliente)}</strong>
-                                            <span class="text-slate-500">${escaparHtml((v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', '))}</span>
-                                            <span class="text-emerald-700 font-black block">$${Number(v.total).toLocaleString()}</span>
-                                        </div>
-                                        <button onclick="eliminarVenta(${v.id})" class="text-red-400 hover:text-red-600 font-bold p-1 text-base">✕</button>
-                                    </div>
-                                `;
+                <div class="p-2.5 rounded-xl border text-xs ${anulada ? 'bg-slate-100 border-slate-200 opacity-70' : 'bg-white border-slate-200'}">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-slate-400">${fechaTexto}${v.formaPago ? ' · ' + escaparHtml(v.formaPago) : ''}</div>
+                            <strong class="text-slate-900 ${anulada ? 'line-through' : ''}">${escaparHtml(v.cliente || 'Cliente')}</strong>
+                            <div class="text-slate-500">${detalle}</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="font-black ${anulada ? 'text-slate-400 line-through' : 'text-emerald-700'}">${dinero(v.total)}</div>
+                            ${gananciaHtml}
+                        </div>
+                    </div>
+                    ${pie}
+                </div>`;
         }
 
-        function renderVentasArbol() {
-            const contenedor = document.getElementById('contenedor-arbol-ventas');
-            if (!contenedor) return;
-            if (listaVentas.length === 0) {
-                contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">No hay ventas registradas.</p>`;
+        // ---------- COSTOS, PRECIO SUGERIDO Y FOTO DE CADA VENTA ----------
+        function dinero2(n) {
+            return '$' + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        function redondear2(n) {
+            return Math.round(Number(n) * 100) / 100;
+        }
+
+        function mensajeErrorBase(error) {
+            const m = (error && error.message) || String(error || '');
+            return /schema cache|does not exist|column/i.test(m)
+                ? `${m}\n\nFalta actualizar la base de datos: ejecuta costos_y_ganancias.sql en el SQL Editor.`
+                : m;
+        }
+
+        function unidadesPorPaqueteDe(productoId) {
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(productoId));
+            return prod ? Number(prod.unidadesPorPaquete || 0) : 0;
+        }
+
+        // mayorista: número, o null si todavía no se registró. lineas: [{ paqueteria_id, cantidad, por }]
+        function calcularCostoUnitario(productoId, mayorista, lineas) {
+            const porPaquete = unidadesPorPaqueteDe(productoId);
+            let paqueteria = 0;
+            (lineas || []).forEach(l => {
+                const material = listaPaqueteria.find(m => Number(m.id) === Number(l.paqueteria_id));
+                if (!material) return;
+                const divisor = (l.por === 'paquete' && porPaquete > 0) ? porPaquete : 1;
+                paqueteria += Number(material.costo || 0) * Number(l.cantidad || 0) / divisor;
+            });
+            const conocido = mayorista !== null && mayorista !== undefined && !isNaN(Number(mayorista));
+            const may = conocido ? Number(mayorista) : 0;
+            return { mayorista: may, paqueteria, total: may + paqueteria, conocido };
+        }
+
+        // precio = costo × (1 + ganancia%), redondeado hacia arriba al múltiplo elegido
+        function precioSugeridoDe(costoTotal, gananciaPct, redondeo) {
+            const bruto = Number(costoTotal) * (1 + Number(gananciaPct || 0) / 100);
+            const paso = Number(redondeo) > 0 ? Number(redondeo) : 1;
+            return Math.ceil(bruto / paso - 1e-9) * paso;
+        }
+
+        function porcentajeGananciaDe(productoId) {
+            const c = costosProducto[productoId];
+            return (c && c.ganancia_pct !== null && c.ganancia_pct !== undefined) ? Number(c.ganancia_pct) : Number(configVentas.ganancia_pct);
+        }
+
+        function costoVigenteDe(productoId) {
+            const c = costosProducto[productoId];
+            const lineas = paqueteriaProducto.filter(l => Number(l.producto_id) === Number(productoId));
+            return calcularCostoUnitario(productoId, c ? c.costo_mayorista : null, lineas);
+        }
+
+        // Copia, dentro de cada producto vendido, los costos, el % de ganancia y el precio sugerido de AHORA.
+        // Así editar costos o precios después no cambia las ventas pasadas.
+        function construirSnapshotVenta(items, totalVenta) {
+            let costoTotal = 0;
+            let completo = (items || []).length > 0;
+            const itemsConFoto = (items || []).map(i => {
+                const costo = costoVigenteDe(i.productoId);
+                const pct = porcentajeGananciaDe(i.productoId);
+                if (!costo.conocido) {
+                    completo = false;
+                    return { ...i, costoMayorista: null, costoPaqueteria: null, costoUnitario: null, gananciaPct: pct, precioSugerido: null };
+                }
+                costoTotal += Number(i.cantidad || 0) * costo.total;
+                return {
+                    ...i,
+                    costoMayorista: redondear2(costo.mayorista),
+                    costoPaqueteria: redondear2(costo.paqueteria),
+                    costoUnitario: redondear2(costo.total),
+                    gananciaPct: pct,
+                    precioSugerido: precioSugeridoDe(costo.total, pct, configVentas.redondeo)
+                };
+            });
+            return {
+                items: itemsConFoto,
+                costo_total: completo ? redondear2(costoTotal) : null,
+                ganancia: completo ? redondear2(Number(totalVenta) - costoTotal) : null
+            };
+        }
+
+        // Anular no borra: la venta queda registrada como anulada y deja de contar en los totales
+        async function anularVenta(id) {
+            const venta = listaVentas.find(v => Number(v.id) === Number(id));
+            if (!venta || venta.estado === 'anulada') return;
+            if (!confirm("¿Anular esta venta?\n\nQuedará registrada como anulada y dejará de contar en los totales. No se borra.")) return;
+            const devolverStock = confirm("¿Devolver al stock los productos de esta venta?\n\nAceptar: sí, se suman de nuevo al stock.\nCancelar: no, el stock queda como está.");
+
+            const { error } = await db.rpc('anular_venta', {
+                p_id: Number(id),
+                p_devolver_stock: devolverStock,
+                p_motivo: devolverStock ? 'Anulada y devuelta al stock' : 'Anulada sin devolver al stock'
+            });
+            if (error) {
+                alert("No se pudo anular la venta: " + mensajeErrorBase(error));
                 return;
             }
-            const conFecha = listaVentas.filter(v => v.fechaVenta);
-            const sinFecha = listaVentas.filter(v => !v.fechaVenta).sort((a, b) => Number(b.id) - Number(a.id));
-            const arbol = {};
-            conFecha.forEach(v => {
-                const fecha = new Date(v.fechaVenta);
-                const anio = fecha.getFullYear();
-                const mes = fecha.getMonth();
-                const semana = obtenerNumeroSemana(fecha);
-                const diaStr = fechaLocalISO(fecha);
-                if (!arbol[anio]) arbol[anio] = {};
-                if (!arbol[anio][mes]) arbol[anio][mes] = {};
-                if (!arbol[anio][mes][semana]) arbol[anio][mes][semana] = {};
-                if (!arbol[anio][mes][semana][diaStr]) arbol[anio][mes][semana][diaStr] = [];
-                arbol[anio][mes][semana][diaStr].push(v);
-            });
+            await cargarDatosDesdeSupabase();
+        }
 
-            let html = '';
-            Object.keys(arbol).sort((a, b) => b - a).forEach(anio => {
-                html += `<div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
-                    <h3 class="font-bold text-sm text-meridena-dark border-b border-slate-200 pb-1">📅 Año ${anio}</h3>`;
-                Object.keys(arbol[anio]).sort((a, b) => b - a).forEach(mes => {
-                    html += `<div class="ml-2 pl-2 border-l-2 border-meridena-sky/40 space-y-2 my-1.5">
-                        <h4 class="font-bold text-xs text-meridena-sky uppercase">🗓️ ${obtenerNombreMes(parseInt(mes))}</h4>`;
-                    Object.keys(arbol[anio][mes]).sort((a, b) => b - a).forEach(semana => {
-                        html += `<div class="ml-2 pl-2 border-l-2 border-amber-300 space-y-1.5 my-1">
-                            <span class="text-[11px] font-bold text-amber-800">📌 Semana ${semana}</span>`;
-                        Object.keys(arbol[anio][mes][semana]).sort((a, b) => new Date(b) - new Date(a)).forEach(dia => {
-                            html += `<div class="ml-2 pl-2 border-l-2 border-slate-300 space-y-1 my-1">
-                                <span class="text-[10px] font-bold text-slate-500">📆 Día: ${dia}</span>`;
-                            arbol[anio][mes][semana][dia].forEach(v => {
-                                html += htmlFilaVenta(v);
-                            });
-                            html += `</div>`;
-                        });
-                        html += `</div>`;
-                    });
-                    html += `</div>`;
-                });
-                html += `</div>`;
-            });
+        // ---------- PANTALLA "COSTOS Y PRECIOS" ----------
+        async function abrirCostos() {
+            const overlay = document.getElementById('costos-overlay');
+            if (!overlay) return;
+            overlay.classList.remove('hidden');
+            overlay.scrollTop = 0;
+            await cargarDatosDesdeSupabase();
+            renderCostos();
+        }
 
-            if (sinFecha.length) {
-                html += `<div class="border border-amber-300 rounded-xl p-3 bg-amber-50 space-y-1">
-                    <h3 class="font-bold text-sm text-amber-800 border-b border-amber-200 pb-1">⏳ Sin fecha registrada (${sinFecha.length})</h3>
-                    <p class="text-[11px] text-amber-700">Son ventas antiguas: cuando se hicieron no se guardó la fecha.</p>
-                    ${sinFecha.map(htmlFilaVenta).join('')}
+        function cerrarCostos() {
+            const overlay = document.getElementById('costos-overlay');
+            if (overlay) overlay.classList.add('hidden');
+            renderPanelVentas();
+        }
+
+        function renderCostos() {
+            const aviso = document.getElementById('costos-aviso');
+            const cfg = document.getElementById('costos-config');
+            const paq = document.getElementById('costos-paqueteria');
+            const prods = document.getElementById('costos-productos');
+            if (!aviso || !cfg || !paq || !prods) return;
+
+            aviso.innerHTML = costosDisponibles ? '' : `
+                <div class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+                    Falta activar esta función en la base de datos. Ejecuta <strong>costos_y_ganancias.sql</strong> en el SQL Editor de Supabase y vuelve a abrir la app.
                 </div>`;
-            }
-            contenedor.innerHTML = html;
+
+            cfg.innerHTML = `
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs space-y-2.5">
+                    <h3 class="font-bold text-sm text-meridena-dark">1. Ajustes generales</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Ganancia que quiero (%)</label>
+                            <input id="cfg-ganancia" type="number" min="0" step="any" inputmode="decimal" value="${configVentas.ganancia_pct}" class="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Redondear precio a múltiplos de ($)</label>
+                            <input id="cfg-redondeo" type="number" min="1" step="1" inputmode="numeric" value="${configVentas.redondeo}" class="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-sm">
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Ejemplo: si algo te cuesta $100 y quieres 30%, el precio sugerido es $130 (redondeado hacia arriba).</p>
+                    <button type="button" onclick="guardarConfigVentas()" class="w-full py-2 rounded-xl bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-xs">Guardar ajustes</button>
+                </div>`;
+
+            paq.innerHTML = `
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs space-y-2.5">
+                    <h3 class="font-bold text-sm text-meridena-dark">2. Paquetería: lo que te cuesta cada material</h3>
+                    ${listaPaqueteria.length === 0 ? `<p class="text-[11px] text-slate-400">Todavía no hay materiales. Agrega bolsas, cajas, etiquetas, envío, etc.</p>` : ''}
+                    ${listaPaqueteria.map(m => `
+                        <div class="flex items-center gap-1.5">
+                            <input id="paq-nombre-${m.id}" type="text" value="${escaparHtml(m.nombre)}" class="flex-1 min-w-0 px-2 py-1.5 border border-slate-200 rounded-lg text-xs">
+                            <input id="paq-costo-${m.id}" type="number" min="0" step="any" inputmode="decimal" value="${m.costo}" class="w-20 px-2 py-1.5 border border-slate-200 rounded-lg text-xs">
+                            <button type="button" onclick="guardarMaterial(${m.id})" class="px-2 py-1.5 rounded-lg bg-meridena-sky text-white text-[11px] font-bold">Guardar</button>
+                            <button type="button" onclick="quitarMaterial(${m.id})" aria-label="Quitar" class="px-2 py-1.5 rounded-lg bg-slate-100 text-red-500 text-[11px] font-bold">✕</button>
+                        </div>`).join('')}
+                    <div class="flex items-center gap-1.5 pt-1 border-t border-slate-100">
+                        <input id="paq-nuevo-nombre" type="text" placeholder="Nuevo material (ej: Bolsa)" class="flex-1 min-w-0 px-2 py-1.5 border border-slate-200 rounded-lg text-xs">
+                        <input id="paq-nuevo-costo" type="number" min="0" step="any" inputmode="decimal" placeholder="Costo $" class="w-20 px-2 py-1.5 border border-slate-200 rounded-lg text-xs">
+                        <button type="button" onclick="agregarMaterial()" class="px-2 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold">Agregar</button>
+                    </div>
+                </div>`;
+
+            prods.innerHTML = `<h3 class="font-bold text-sm text-meridena-dark px-1">3. Costos por producto</h3>` + catalogoProductos.map(htmlTarjetaCosto).join('');
+            catalogoProductos.forEach(p => recalcularCostosProducto(p.id));
             if (window.lucide) lucide.createIcons();
+        }
+
+        function htmlTarjetaCosto(prod) {
+            const c = costosProducto[prod.id];
+            const lineas = paqueteriaProducto.filter(l => Number(l.producto_id) === Number(prod.id));
+            const porPaquete = Number(prod.unidadesPorPaquete || 0);
+            const materiales = listaPaqueteria.map(m => {
+                const l = lineas.find(x => Number(x.paqueteria_id) === Number(m.id));
+                return `
+                    <div class="flex items-center gap-2 text-xs">
+                        <input type="checkbox" id="cp-chk-${prod.id}-${m.id}" ${l ? 'checked' : ''} onchange="recalcularCostosProducto(${prod.id})" class="w-4 h-4">
+                        <label for="cp-chk-${prod.id}-${m.id}" class="flex-1 min-w-0 truncate">${escaparHtml(m.nombre)} <span class="text-slate-400">(${dinero2(m.costo)})</span></label>
+                        <input type="number" id="cp-qty-${prod.id}-${m.id}" min="0" step="any" inputmode="decimal" value="${l ? l.cantidad : 1}" oninput="recalcularCostosProducto(${prod.id})" class="w-14 px-1.5 py-1 border border-slate-200 rounded-lg text-xs text-center">
+                        ${porPaquete > 0 ? `<select id="cp-por-${prod.id}-${m.id}" onchange="recalcularCostosProducto(${prod.id})" class="px-1 py-1 border border-slate-200 rounded-lg text-xs bg-white"><option value="unidad" ${(!l || l.por === 'unidad') ? 'selected' : ''}>por unidad</option><option value="paquete" ${(l && l.por === 'paquete') ? 'selected' : ''}>por paquete (${porPaquete}u)</option></select>` : ''}
+                    </div>`;
+            }).join('');
+            return `
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs space-y-2.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <strong class="text-sm text-slate-800">${prod.emoji} ${escaparHtml(prod.nombre)}</strong>
+                        <span class="text-xs text-slate-500 whitespace-nowrap">Precio actual: <strong>${dinero(prod.precio)}</strong></span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Costo mayorista por unidad ($)</label>
+                            <input id="cp-may-${prod.id}" type="number" min="0" step="any" inputmode="decimal" value="${c ? c.costo_mayorista : ''}" oninput="recalcularCostosProducto(${prod.id})" class="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Ganancia % (vacío = ${configVentas.ganancia_pct}%)</label>
+                            <input id="cp-pct-${prod.id}" type="number" min="0" step="any" inputmode="decimal" value="${(c && c.ganancia_pct !== null) ? c.ganancia_pct : ''}" oninput="recalcularCostosProducto(${prod.id})" class="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-sm">
+                        </div>
+                    </div>
+                    ${listaPaqueteria.length
+                        ? `<div class="space-y-1.5"><div class="text-[10px] font-bold text-slate-500">Paquetería que usa (cantidad por cada unidad o paquete vendido):</div>${materiales}</div>`
+                        : `<p class="text-[10px] text-slate-400">Agrega materiales de paquetería arriba para sumarlos al costo.</p>`}
+                    <div id="cp-res-${prod.id}" class="rounded-xl bg-slate-50 border border-slate-100 p-2.5 text-xs space-y-0.5"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="guardarCostosProducto(${prod.id})" class="py-2 rounded-xl bg-meridena-sky hover:bg-meridena-skyDark text-white font-bold text-xs">Guardar costos</button>
+                        <button type="button" onclick="aplicarPrecioSugerido(${prod.id})" class="py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs">Guardar y usar precio sugerido</button>
+                    </div>
+                </div>`;
+        }
+
+        function leerFormularioProducto(id) {
+            const numero = (elId) => {
+                const el = document.getElementById(elId);
+                if (!el || el.value === '' || el.value === null || el.value === undefined) return null;
+                const n = parseFloat(el.value);
+                return isNaN(n) ? null : n;
+            };
+            const lineas = [];
+            listaPaqueteria.forEach(m => {
+                const chk = document.getElementById(`cp-chk-${id}-${m.id}`);
+                if (chk && chk.checked) {
+                    const cantidad = numero(`cp-qty-${id}-${m.id}`);
+                    const porEl = document.getElementById(`cp-por-${id}-${m.id}`);
+                    lineas.push({ paqueteria_id: m.id, cantidad: cantidad > 0 ? cantidad : 1, por: porEl ? porEl.value : 'unidad' });
+                }
+            });
+            return { mayorista: numero(`cp-may-${id}`), pct: numero(`cp-pct-${id}`), lineas };
+        }
+
+        function recalcularCostosProducto(id) {
+            const cont = document.getElementById(`cp-res-${id}`);
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(id));
+            if (!cont || !prod) return;
+            const f = leerFormularioProducto(id);
+            if (f.mayorista === null || f.mayorista < 0) {
+                cont.innerHTML = `<span class="text-slate-400">Escribe el costo mayorista por unidad para calcular el precio.</span>`;
+                return;
+            }
+            const costo = calcularCostoUnitario(id, f.mayorista, f.lineas);
+            const pct = f.pct !== null ? f.pct : Number(configVentas.ganancia_pct);
+            const sugerido = precioSugeridoDe(costo.total, pct, configVentas.redondeo);
+            const precio = Number(prod.precio || 0);
+            const gananciaU = precio - costo.total;
+            const margen = precio > 0 ? gananciaU / precio * 100 : 0;
+            cont.innerHTML = `
+                <div class="flex justify-between"><span class="text-slate-500">Costo total por unidad</span><strong>${dinero2(costo.total)}</strong></div>
+                <div class="text-[10px] text-slate-400">mayorista ${dinero2(costo.mayorista)} + paquetería ${dinero2(costo.paqueteria)}</div>
+                <div class="flex justify-between"><span class="text-slate-500">Precio sugerido (${pct}% de ganancia)</span><strong class="text-emerald-700">${dinero(sugerido)}</strong></div>
+                <div class="flex justify-between gap-2"><span class="text-slate-500">Con tu precio actual ganas</span><strong class="${gananciaU < 0 ? 'text-red-600' : 'text-emerald-700'}">${dinero2(gananciaU)} por unidad (${margen.toFixed(1)}%)</strong></div>
+                ${gananciaU < 0 ? '<div class="text-[11px] font-bold text-red-600">⚠ Estás vendiendo por debajo del costo.</div>' : ''}`;
+        }
+
+        async function guardarConfigVentas() {
+            const ganancia = parseFloat(document.getElementById('cfg-ganancia').value);
+            const redondeo = Math.round(parseFloat(document.getElementById('cfg-redondeo').value));
+            if (isNaN(ganancia) || ganancia < 0) { alert("Escribe un porcentaje de ganancia válido (0 o más)."); return; }
+            if (isNaN(redondeo) || redondeo < 1) { alert("El redondeo debe ser 1 o más."); return; }
+            const { error } = await db.from('configuracion_ventas').upsert({ id: 1, ganancia_pct: ganancia, redondeo, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+            if (error) { alert("No se pudieron guardar los ajustes: " + mensajeErrorBase(error)); return; }
+            configVentas = { ganancia_pct: ganancia, redondeo };
+            renderCostos();
+            alert("✅ Ajustes guardados.");
+        }
+
+        async function guardarMaterial(id) {
+            const nombre = document.getElementById(`paq-nombre-${id}`).value.trim();
+            const costo = parseFloat(document.getElementById(`paq-costo-${id}`).value);
+            if (!nombre || isNaN(costo) || costo < 0) { alert("Escribe un nombre y un costo válido."); return; }
+            const { error } = await db.from('paqueteria').update({ nombre, costo, updated_at: new Date().toISOString() }).eq('id', Number(id));
+            if (error) {
+                alert(/duplicate|unique/i.test(error.message) ? "Ya existe un material con ese nombre." : "No se pudo guardar: " + mensajeErrorBase(error));
+                return;
+            }
+            await cargarDatosDesdeSupabase();
+            renderCostos();
+        }
+
+        async function agregarMaterial() {
+            const nombre = document.getElementById('paq-nuevo-nombre').value.trim();
+            const costo = parseFloat(document.getElementById('paq-nuevo-costo').value);
+            if (!nombre || isNaN(costo) || costo < 0) { alert("Escribe el nombre del material y su costo."); return; }
+            const { error } = await db.from('paqueteria').insert([{ nombre, costo }]);
+            if (error) {
+                alert(/duplicate|unique/i.test(error.message) ? "Ya existe un material con ese nombre." : "No se pudo agregar: " + mensajeErrorBase(error));
+                return;
+            }
+            await cargarDatosDesdeSupabase();
+            renderCostos();
+        }
+
+        async function quitarMaterial(id) {
+            if (!confirm("¿Quitar este material?\n\nDejará de sumarse al costo de los productos desde ahora. Las ventas ya hechas no cambian.")) return;
+            const { error } = await db.from('paqueteria').delete().eq('id', Number(id));
+            if (error) { alert("No se pudo quitar: " + mensajeErrorBase(error)); return; }
+            await cargarDatosDesdeSupabase();
+            renderCostos();
+        }
+
+        async function guardarCostosProducto(id, silencioso) {
+            const f = leerFormularioProducto(id);
+            if (f.mayorista === null || f.mayorista < 0) {
+                alert("Escribe el costo mayorista por unidad (puede ser 0).");
+                return false;
+            }
+            if (f.pct !== null && f.pct < 0) {
+                alert("La ganancia % no puede ser negativa.");
+                return false;
+            }
+            const ahoraISO = new Date().toISOString();
+            const r1 = await db.from('costos_producto').upsert({ producto_id: Number(id), costo_mayorista: f.mayorista, ganancia_pct: f.pct, updated_at: ahoraISO }, { onConflict: 'producto_id' });
+            if (r1.error) { alert("No se pudieron guardar los costos: " + mensajeErrorBase(r1.error)); return false; }
+            const r2 = await db.from('producto_paqueteria').delete().eq('producto_id', Number(id));
+            if (r2.error) { alert("No se pudo actualizar la paquetería: " + mensajeErrorBase(r2.error)); return false; }
+            if (f.lineas.length > 0) {
+                const r3 = await db.from('producto_paqueteria').insert(f.lineas.map(l => ({ producto_id: Number(id), paqueteria_id: l.paqueteria_id, cantidad: l.cantidad, por: l.por })));
+                if (r3.error) { alert("No se pudo guardar la paquetería: " + mensajeErrorBase(r3.error)); return false; }
+            }
+            await cargarDatosDesdeSupabase();
+            renderCostos();
+            if (!silencioso) alert("✅ Costos guardados.");
+            return true;
+        }
+
+        async function aplicarPrecioSugerido(id) {
+            const prod = catalogoProductos.find(p => Number(p.id) === Number(id));
+            if (!prod) return;
+            const f = leerFormularioProducto(id);
+            if (f.mayorista === null || f.mayorista < 0) { alert("Escribe el costo mayorista por unidad (puede ser 0)."); return; }
+            const costo = calcularCostoUnitario(id, f.mayorista, f.lineas);
+            const pct = f.pct !== null ? f.pct : Number(configVentas.ganancia_pct);
+            const precio = Math.round(precioSugeridoDe(costo.total, pct, configVentas.redondeo));
+            if (!confirm(`¿Guardar los costos y poner ${dinero(precio)} como precio de venta de ${prod.nombre}?\n\nPrecio actual: ${dinero(prod.precio)}.\nLas ventas ya hechas no cambian.`)) return;
+            if (!(await guardarCostosProducto(id, true))) return;
+            const { error } = await db.from('stock').update({ precio }).eq('id', Number(id));
+            if (error) { alert("Se guardaron los costos, pero no se pudo cambiar el precio: " + mensajeErrorBase(error)); return; }
+            // Se recarga para que el nuevo precio se vea en toda la app (el catálogo se reconstruye al cargar)
+            await cargarDatosDesdeSupabase();
+            renderCostos();
+            alert(`✅ Precio de ${prod.nombre}: ${dinero(precio)}.`);
         }
 
         function renderPanelVentas() {
@@ -1887,17 +2332,22 @@
             if (!contTarjetas || !contNav || !contCuerpo || !contHist) return;
 
             const ahora = new Date();
+            // Solo cuentan las ventas completadas; las anuladas se muestran aparte
+            const activasDe = (desde, hasta) => ventasDelPeriodo(desde, hasta).filter(v => v.estado !== 'anulada');
 
-            // 1) Tres tarjetas: hoy, esta semana y este mes. Se tocan para ver el detalle.
+            // 1) Tres tarjetas (hoy, esta semana, este mes) con su variación contra el período anterior
             contTarjetas.innerHTML = [['dia', 'Hoy'], ['semana', 'Esta semana'], ['mes', 'Este mes']].map(([vistaT, titulo]) => {
                 const pT = periodoDeVentas(vistaT, ahora);
-                const rT = resumenVentas(ventasDelPeriodo(pT.desde, pT.hasta));
+                const rT = resumenVentas(activasDe(pT.desde, pT.hasta));
+                const prT = periodoAnteriorDe(vistaT, ahora, ahora);
+                const rPrev = resumenVentas(activasDe(prT.desde, prT.hasta));
                 const activa = panelVentasVista === vistaT;
+                const vr = variacionVentas(rT.total, rPrev.total);
                 return `
                     <button type="button" onclick="seleccionarVistaVentas('${vistaT}')" class="text-left p-2.5 rounded-xl border transition ${activa ? 'bg-meridena-sky border-meridena-sky text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}">
                         <div class="text-[10px] font-semibold ${activa ? 'text-white/90' : 'text-slate-500'}">${titulo}</div>
                         <div class="text-sm font-black leading-tight break-words">${dinero(rT.total)}</div>
-                        <div class="text-[10px] ${activa ? 'text-white/90' : 'text-slate-400'}">${rT.cantidad} ${plural(rT.cantidad, 'venta', 'ventas')}</div>
+                        <div class="text-[10px] ${activa ? 'text-white/90' : 'text-slate-400'}">${htmlVariacion(vr, activa) || `${rT.cantidad} ${plural(rT.cantidad, 'venta', 'ventas')}`}</div>
                     </button>`;
             }).join('');
 
@@ -1905,8 +2355,13 @@
             const vista = panelVentasVista;
             const per = periodoDeVentas(vista, panelVentasAncla);
             const esActual = per.hasta.getTime() > ahora.getTime();
-            const ventasPer = ventasDelPeriodo(per.desde, per.hasta);
-            const res = resumenVentas(ventasPer);
+            const todasPer = ventasDelPeriodo(per.desde, per.hasta);
+            const activas = todasPer.filter(v => v.estado !== 'anulada');
+            const anuladas = todasPer.filter(v => v.estado === 'anulada');
+            const res = resumenVentas(activas);
+            const prevPer = periodoAnteriorDe(vista, panelVentasAncla, ahora);
+            const prev = resumenVentas(activasDe(prevPer.desde, prevPer.hasta));
+            const comparacion = etiquetaComparacion(vista, esActual);
 
             contNav.innerHTML = `
                 <div class="flex items-center justify-between gap-2">
@@ -1915,24 +2370,48 @@
                     <button type="button" onclick="moverPeriodoVentas(1)" aria-label="Período siguiente" ${esActual ? 'disabled' : ''} class="w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-xl font-black text-slate-700 disabled:opacity-30">›</button>
                 </div>`;
 
-            // 3) Total del período, desglose y productos vendidos
+            // 3) Dato principal: lo vendido en el período y cómo va frente al anterior
+            const vTotal = variacionVentas(res.total, prev.total);
             let cuerpo = `
-                <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-center">
+                <div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-center space-y-1">
                     <div class="text-[11px] font-semibold text-emerald-700">Vendido ${vista === 'dia' ? 'en el día' : vista === 'semana' ? 'en la semana' : 'en el mes'}</div>
-                    <div class="text-2xl font-black text-emerald-800">${dinero(res.total)}</div>
-                    <div class="text-[11px] text-emerald-700">${res.cantidad} ${plural(res.cantidad, 'venta', 'ventas')}</div>
+                    <div class="text-3xl font-black text-emerald-800">${dinero(res.total)}</div>
+                    <div class="text-xs">${vTotal
+                        ? `${htmlVariacion(vTotal)} <span class="text-slate-500">${comparacion} (${dinero(prev.total)})</span>`
+                        : `<span class="text-slate-400">${prev.cantidad === 0 ? 'Sin ventas en el período anterior para comparar' : 'Igual que el período anterior'}</span>`}</div>
                 </div>`;
 
+            // 4) Métricas: ganancia y margen reales, ventas, unidades y ticket promedio
+            const kpi = (titulo, valor, variacion, nota) => `
+                <div class="bg-slate-50 rounded-xl border border-slate-100 p-2.5">
+                    <div class="text-[10px] font-semibold text-slate-500">${titulo}</div>
+                    <div class="text-base font-black text-slate-800">${valor}</div>
+                    <div class="text-[10px] text-slate-500">${htmlVariacion(variacion)} ${nota || ''}</div>
+                </div>`;
+            cuerpo += `
+                <div class="grid grid-cols-2 gap-2">
+                    ${kpi('Ganancia real', res.ganancia === null ? 'Sin costos' : dinero2(res.ganancia), variacionVentas(res.ganancia, prev.ganancia), res.margen === null ? '' : `margen ${res.margen.toFixed(1)}%`)}
+                    ${kpi('Ventas', res.cantidad, variacionVentas(res.cantidad, prev.cantidad), '')}
+                    ${kpi('Unidades', res.unidades.toLocaleString(), variacionVentas(res.unidades, prev.unidades), '')}
+                    ${kpi('Ticket promedio', dinero(Math.round(res.ticket)), res.cantidad && prev.cantidad ? variacionVentas(res.ticket, prev.ticket) : null, '')}
+                </div>`;
+            if (res.cantidad > 0 && res.ventasConCosto < res.cantidad) {
+                cuerpo += `<p class="text-[10px] text-slate-400">${res.ventasConCosto === 0
+                    ? (costosDisponibles ? 'Registra los costos de tus productos en "Costos y precios" para ver la ganancia.' : 'Falta activar los costos en la base de datos (costos_y_ganancias.sql).')
+                    : `La ganancia se calcula con ${res.ventasConCosto} de ${res.cantidad} ventas: el resto no tiene costos guardados.`}</p>`;
+            }
+
             if (res.cantidad === 0) {
-                cuerpo += `<p class="text-xs text-slate-400 text-center py-3">No hay ventas en este período.</p>`;
+                cuerpo += `<p class="text-xs text-slate-400 text-center py-2">No hay ventas completadas en este período.</p>`;
             } else {
+                // 5) Día por día (semana) o semana por semana (mes)
                 if (vista === 'semana' || vista === 'mes') {
                     const filas = [];
                     if (vista === 'semana') {
                         for (let i = 0; i < 7; i++) {
                             const dia = new Date(per.desde.getFullYear(), per.desde.getMonth(), per.desde.getDate() + i);
                             const sig = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate() + 1);
-                            const r = resumenVentas(ventasDelPeriodo(dia, sig));
+                            const r = resumenVentas(activasDe(dia, sig));
                             filas.push({
                                 etiqueta: `${nombreDiaCorto(i)} ${dia.getDate()}${esMismoDia(dia, ahora) ? ' (hoy)' : ''}`,
                                 total: r.total,
@@ -1945,7 +2424,7 @@
                             const finSemana = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 7);
                             const desde = ini.getTime() < per.desde.getTime() ? per.desde : ini;
                             const hasta = finSemana.getTime() > per.hasta.getTime() ? per.hasta : finSemana;
-                            const r = resumenVentas(ventasDelPeriodo(desde, hasta));
+                            const r = resumenVentas(activasDe(desde, hasta));
                             const ultimo = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate() - 1);
                             filas.push({
                                 etiqueta: desde.getDate() === ultimo.getDate() ? `Día ${desde.getDate()}` : `Semana del ${desde.getDate()} al ${ultimo.getDate()}`,
@@ -1968,58 +2447,80 @@
                                     <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 rounded-full" style="width: ${maximo > 0 ? Math.round(f.total / maximo * 100) : 0}%"></div></div>
                                 </button>`).join('')}
                         </div>`;
-                } else {
-                    cuerpo += `
-                        <div class="space-y-1.5">
-                            <h3 class="text-xs font-bold text-slate-500">Ventas del día</h3>
-                            ${ventasPer.slice().sort((a, b) => b.fechaVenta - a.fechaVenta).map(v => `
-                                <div class="flex items-center justify-between gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
-                                    <div class="min-w-0">
-                                        <strong class="text-slate-800">${escaparHtml(v.cliente || 'Cliente')}</strong>
-                                        <div class="text-slate-500">${escaparHtml((v.items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', '))}</div>
-                                    </div>
-                                    <span class="font-black text-emerald-700 whitespace-nowrap">${dinero(v.total)}</span>
-                                </div>`).join('')}
-                        </div>`;
                 }
 
-                const valorProductos = res.productos.reduce((suma, p) => suma + p.subtotal, 0);
-                cuerpo += `<div class="space-y-1.5"><h3 class="text-xs font-bold text-slate-500">Qué se vendió</h3>`;
+                // 6) Desglose por producto: unidades, precio de venta, ganancia y margen
+                cuerpo += `<div class="space-y-1.5"><h3 class="text-xs font-bold text-slate-500">Por producto</h3>`;
                 if (res.productos.length === 0) {
                     cuerpo += `<p class="text-xs text-slate-400 text-center py-2">Estas ventas no tienen el detalle de productos.</p>`;
                 } else {
-                    cuerpo += res.productos.map(p => `
-                        <div class="flex items-start justify-between gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
-                            <div class="min-w-0">
-                                <div class="font-bold text-sm text-slate-800">${p.emoji} ${escaparHtml(p.nombre)}</div>
-                                <div class="text-slate-500">${textoUnidades(p.productoId, p.unidades)} · a ${dinero(p.precio)} c/u</div>
-                            </div>
-                            <div class="font-black text-emerald-700 text-sm whitespace-nowrap">${dinero(p.subtotal)}</div>
-                        </div>`).join('');
-                    if (Math.abs(valorProductos - res.total) > 0.5) {
-                        cuerpo += `<p class="text-[10px] text-slate-400">Los productos suman ${dinero(valorProductos)}. La diferencia con el total puede venir de deudas saldadas con pagos parciales o de ventas sin detalle de productos.</p>`;
-                    }
+                    cuerpo += res.productos.map(p => {
+                        const gan = p.unidadesConCosto > 0 ? p.ingresoConCosto - p.costo : null;
+                        const mg = (gan !== null && p.ingresoConCosto > 0) ? gan / p.ingresoConCosto * 100 : null;
+                        const notaGan = gan === null
+                            ? 'sin costo registrado'
+                            : `ganancia ${dinero2(gan)} (${mg.toFixed(0)}%)${p.unidadesConCosto < p.unidades ? ' · parcial' : ''}`;
+                        return `
+                            <div class="flex items-start justify-between gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                                <div class="min-w-0">
+                                    <div class="font-bold text-sm text-slate-800">${p.emoji} ${escaparHtml(p.nombre)}</div>
+                                    <div class="text-slate-500">${textoUnidades(p.productoId, p.unidades)} · a ${dinero(p.precio)} c/u</div>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <div class="font-black text-emerald-700 text-sm">${dinero(p.subtotal)}</div>
+                                    <div class="text-[10px] ${gan === null ? 'text-slate-400' : 'text-emerald-600'}">${notaGan}</div>
+                                </div>
+                            </div>`;
+                    }).join('');
                 }
                 cuerpo += `</div>`;
+
+                // 7) Cómo se pagó
+                cuerpo += `<div class="space-y-1.5"><h3 class="text-xs font-bold text-slate-500">Cómo se pagó</h3>
+                    ${res.pagos.map(pg => `
+                        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1">
+                            <div class="flex justify-between">
+                                <span class="font-bold text-slate-700">${escaparHtml(pg.nombre)} <span class="font-normal text-slate-400">· ${pg.cantidad} ${plural(pg.cantidad, 'venta', 'ventas')}</span></span>
+                                <span class="font-black text-slate-800">${dinero(pg.total)}</span>
+                            </div>
+                            <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden"><div class="h-full bg-meridena-sky rounded-full" style="width: ${res.total > 0 ? Math.round(pg.total / res.total * 100) : 0}%"></div></div>
+                        </div>`).join('')}
+                </div>`;
             }
+
+            // 8) Estado: completadas, anuladas (del período) y pendientes (ahora)
+            const totalAnuladas = anuladas.reduce((suma, v) => suma + Number(v.total || 0), 0);
+            const totalPendientes = listaPedidos.reduce((suma, p) => suma + Number(p.total || 0), 0);
+            const deudaTotal = listaDeudores.reduce((suma, d) => suma + Number(d.montoDeuda ?? d.monto ?? 0), 0);
+            cuerpo += `
+                <div class="space-y-1.5">
+                    <h3 class="text-xs font-bold text-slate-500">Estado de las ventas</h3>
+                    <div class="grid grid-cols-3 gap-2 text-center text-[11px]">
+                        <div class="p-2 rounded-xl bg-emerald-50 border border-emerald-100"><div class="font-semibold text-emerald-700">Completadas</div><div class="font-black text-emerald-800">${activas.length}</div><div class="text-[10px] text-emerald-700">${dinero(res.total)}</div></div>
+                        <div class="p-2 rounded-xl bg-slate-100 border border-slate-200"><div class="font-semibold text-slate-600">Anuladas</div><div class="font-black text-slate-700">${anuladas.length}</div><div class="text-[10px] text-slate-500">${dinero(totalAnuladas)}</div></div>
+                        <div class="p-2 rounded-xl bg-amber-50 border border-amber-100"><div class="font-semibold text-amber-700">Pendientes</div><div class="font-black text-amber-800">${listaPedidos.length}</div><div class="text-[10px] text-amber-700">${dinero(totalPendientes)}</div></div>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Pendientes: pedidos por entregar ahora${deudaTotal > 0 ? ` y ${dinero(deudaTotal)} por cobrar en deudas` : ''}. Las anuladas no cuentan en los totales y no se borran.</p>
+                </div>`;
+
+            // 9) Cada venta como evento individual, con su fecha y hora
+            const listaEventos = todasPer.slice().sort((a, b) => b.fechaVenta - a.fechaVenta);
+            cuerpo += `
+                <div class="space-y-1.5">
+                    <h3 class="text-xs font-bold text-slate-500">Ventas del período (${listaEventos.length})</h3>
+                    ${listaEventos.length ? listaEventos.map(v => htmlFilaVentaPeriodo(v, vista)).join('') : `<p class="text-xs text-slate-400 text-center py-2">No hay ventas en este período.</p>`}
+                </div>`;
             contCuerpo.innerHTML = cuerpo;
 
-            // 4) Total de todas las ventas (incluye las antiguas sin fecha)
-            const todas = resumenVentas(listaVentas);
-            const sinFecha = listaVentas.filter(v => !v.fechaVenta);
-            let hist = `
-                <div class="rounded-xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between gap-3">
-                    <div>
-                        <div class="text-xs font-semibold text-slate-500">Total de todas las ventas</div>
-                        <div class="text-[10px] text-slate-400">${todas.cantidad} ${plural(todas.cantidad, 'venta', 'ventas')}${sinFecha.length ? ` (${sinFecha.length} sin fecha)` : ''}</div>
-                    </div>
-                    <div class="text-lg font-black text-meridena-dark">${dinero(todas.total)}</div>
-                </div>`;
+            // 10) El total histórico queda al final, como dato de referencia
+            const todasActivas = resumenVentas(listaVentas.filter(v => v.estado !== 'anulada'));
+            const sinFecha = listaVentas.filter(v => !v.fechaVenta && v.estado !== 'anulada');
+            let hist = `<p class="text-[11px] text-slate-400 text-center pt-1">Referencia histórica: ${dinero(todasActivas.total)} en ${todasActivas.cantidad} ${plural(todasActivas.cantidad, 'venta', 'ventas')}${sinFecha.length ? ` (${sinFecha.length} sin fecha)` : ''}. Para decidir, mira los períodos de arriba.</p>`;
             if (sinFecha.length) {
                 const rs = resumenVentas(sinFecha);
                 hist += `
                     <div class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs space-y-2">
-                        <p class="text-amber-900"><strong>${sinFecha.length} ${plural(sinFecha.length, 'venta antigua no tiene', 'ventas antiguas no tienen')} fecha</strong> (${dinero(rs.total)} en total). Cuentan en el total de todas las ventas, pero no aparecen en ningún día, semana o mes porque nunca se guardó cuándo se hicieron.</p>
+                        <p class="text-amber-900"><strong>${sinFecha.length} ${plural(sinFecha.length, 'venta antigua no tiene', 'ventas antiguas no tienen')} fecha</strong> (${dinero(rs.total)} en total). No aparecen en ningún día, semana o mes porque nunca se guardó cuándo se hicieron.</p>
                         <button type="button" onclick="abrirFechasVentas()" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs">Poner la fecha a esas ventas</button>
                     </div>`;
             }
@@ -2110,26 +2611,7 @@
             }
         }
 
-        async function eliminarVenta(id) {
-            if (!confirm("¿Estás seguro de que deseas eliminar esta venta del historial?")) return;
 
-            // Aceptar = los productos vuelven al stock · Cancelar = solo se borra del historial
-            const devolverStock = confirm("¿Devolver al stock los productos de esta venta?\n\nAceptar: sí, se suman de nuevo al stock.\nCancelar: no, solo se borra del historial.");
-
-            // La base de datos borra la venta y, si corresponde, devuelve el stock en un solo paso
-            const { error } = await db.rpc('eliminar_venta', {
-                p_id: Number(id),
-                p_devolver_stock: devolverStock
-            });
-            if (error) {
-                alert("No se pudo eliminar la venta: " + error.message);
-                return;
-            }
-
-            listaVentas = listaVentas.filter(v => Number(v.id) !== Number(id));
-            await cargarDatosDesdeSupabase();
-            renderVentasArbol();
-        }
     </script>
 </body>
 </html>
